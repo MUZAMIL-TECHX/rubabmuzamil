@@ -39,6 +39,8 @@ const { isSudo } = require('./lib/index');
 const isOwnerOrSudo = require('./lib/isOwner');
 const { autotypingCommand, isAutotypingEnabled, handleAutotypingForMessage, handleAutotypingForCommand, showTypingAfterCommand } = require('./commands/autotyping');
 const { autoreadCommand, isAutoreadEnabled, handleAutoread } = require('./commands/autoread');
+const { indicatorCommand, indicatorSetCommand, handleIndicator } = require('./commands/indicator');
+const { selfchatCommand, selfchatSetCommand, handleSelfChatMessage } = require('./commands/selfchat');
 
 // Extract arguments without depending on the user's command casing.
 // This also prevents ".ownernamex" from being treated as ".ownername".
@@ -129,6 +131,7 @@ const textmakerCommand = require('./commands/textmaker');
 const { handleAntideleteCommand, handleMessageRevocation, storeMessage } = require('./commands/antidelete');
 const clearTmpCommand = require('./commands/cleartmp');
 const setProfilePicture = require('./commands/setpp');
+const getProfilePictureCommand = require('./commands/getpp');
 const { setGroupDescription, setGroupName, setGroupPhoto } = require('./commands/groupmanage');
 const instagramCommand = require('./commands/instagram');
 const facebookCommand = require('./commands/facebook');
@@ -196,8 +199,11 @@ async function handleMessages(sock, messageUpdate, printLog) {
         // Capture view-once media before any command or wrapper handling consumes it.
         await handleAntiVv(sock, message);
 
-        // Handle autoread functionality
-        await handleAutoread(sock, message);
+        // Custom indicators take precedence over the older autoread feature.
+        // This lets .indicatorset white/null stay grey even if autoread was
+        // enabled earlier.
+        const customIndicatorHandled = await handleIndicator(sock, message);
+        if (!customIndicatorHandled) await handleAutoread(sock, message);
 
         // Store message for antidelete feature
         if (message.message) {
@@ -299,7 +305,11 @@ async function handleMessages(sock, messageUpdate, printLog) {
         // Always run moderation in groups, regardless of mode
         if (isGroup) {
             if (userMessage) {
-                await handleBadwordDetection(sock, chatId, message, userMessage, senderId);
+                // Do not serialize the group event loop behind the external
+                // AI request. Every message gets its own request, so bursts
+                // (for example 20 messages/sec) are checked independently.
+                void handleBadwordDetection(sock, chatId, message, userMessage, senderId)
+                    .catch(error => console.error('AI antibadword handler error:', error?.message || error));
             }
             // Antilink checks message text internally, so run it even if userMessage is empty
             await Antilink(message, sock);
@@ -339,6 +349,12 @@ async function handleMessages(sock, messageUpdate, printLog) {
             // Show typing indicator if autotyping is enabled
             await handleAutotypingForMessage(sock, chatId, userMessage);
 
+            // Self-chat records every relevant message for persistent memory.
+            // In group mode it only replies to mentions/replies; in inbox
+            // mode it replies to every incoming private message.
+            const selfChatHandled = await handleSelfChatMessage(sock, chatId, message, userMessage, senderId);
+            if (selfChatHandled) return;
+
             if (isGroup) {
                 // Always run moderation features (antitag) regardless of mode
                 await handleTagDetection(sock, chatId, message, senderId);
@@ -361,7 +377,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
         const isAdminCommand = adminCommands.some(cmd => userMessage.startsWith(cmd));
 
         // List of owner commands
-        const ownerCommands = ['.mode', '.botdp', '.botname', '.ownernumber', '.ownername', '.description', '.autostatus', '.antidelete', '.antivv', '.addsos', '.delsos', '.cleartmp', '.setpp', '.clearsession', '.areact', '.autoreact', '.autotyping', '.autoread', '.pmblocker'];
+        const ownerCommands = ['.mode', '.botdp', '.botname', '.ownernumber', '.ownername', '.description', '.autostatus', '.antidelete', '.antivv', '.addsos', '.delsos', '.cleartmp', '.setpp', '.clearsession', '.areact', '.autoreact', '.autotyping', '.autoread', '.pmblocker', '.indicator', '.indicatorset', '.selfchat', '.selfchatset'];
         const isOwnerCommand = ownerCommands.some(cmd => new RegExp(`^${cmd}\\b`, 'i').test(rawText));
 
         let isSenderAdmin = false;
@@ -421,6 +437,22 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 break;
             case userMessage.startsWith('.antivv'):
                 await antiVvCommand(sock, chatId, message, commandArgument(rawText, '\\.antivv'));
+                commandExecuted = true;
+                break;
+            case userMessage.startsWith('.indicator') && !userMessage.startsWith('.indicatorset'):
+                await indicatorCommand(sock, chatId, message, commandArgument(rawText, '\\.indicator'));
+                commandExecuted = true;
+                break;
+            case userMessage.startsWith('.indicatorset'):
+                await indicatorSetCommand(sock, chatId, message, commandArgument(rawText, '\\.indicatorset'));
+                commandExecuted = true;
+                break;
+            case userMessage.startsWith('.selfchatset'):
+                await selfchatSetCommand(sock, chatId, message, commandArgument(rawText, '\\.selfchatset'));
+                commandExecuted = true;
+                break;
+            case userMessage === '.selfchat' || userMessage.startsWith('.selfchat '):
+                await selfchatCommand(sock, chatId, message, commandArgument(rawText, '\\.selfchat'));
                 commandExecuted = true;
                 break;
             case userMessage.startsWith('.addsos'):
@@ -1079,6 +1111,10 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 break;
             case userMessage === '.setpp':
                 await setProfilePicture(sock, chatId, message);
+                break;
+            case userMessage.startsWith('.getpp'):
+                await getProfilePictureCommand(sock, chatId, message, commandArgument(rawText, '\\.getpp'));
+                commandExecuted = true;
                 break;
             case userMessage.startsWith('.setgdesc'):
                 {
