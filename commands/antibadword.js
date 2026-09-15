@@ -8,10 +8,15 @@ async function antibadwordCommand(sock, chatId, message, senderId, isSenderAdmin
             return;
         }
 
-        // Extract match from message
-        const text = message.message?.conversation || 
+        // Extract match from message. Both spellings are supported:
+        // .antibadword and .antibadword(s) / .antibadwording.
+        const text = message.message?.conversation ||
                     message.message?.extendedTextMessage?.text || '';
-        const match = text.split(' ').slice(1).join(' ');
+        const parts = text.trim().split(/\s+/);
+        let match = parts.slice(1).join(' ').toLowerCase();
+        if (/^\.antibadwordingset$/i.test(parts[0])) {
+            match = `set ${parts.slice(1).join(' ')}`.trim().toLowerCase();
+        }
 
         await handleAntiBadwordCommand(sock, chatId, message, match);
     } catch (error) {

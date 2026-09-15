@@ -65,6 +65,7 @@ async function helpCommand(sock, chatId, message) {
 ┃ ❍ .antilink [on/off]
 ┃ ❍ .antitag [on/off]
 ┃ ❍ .antibadword [on/off]
+┃ ❍ .antibadwordingset [delete/kick/warn]
 ┃ ❍ .chatbot [on/off]
 ┃ ❍ .welcome [on/off]
 ┃ ❍ .goodbye [on/off]
@@ -77,6 +78,7 @@ async function helpCommand(sock, chatId, message) {
 ┃ ❍ .setgdesc [description]
 ┃ ❍ .setgname [name]
 ┃ ❍ .setgpp [reply image]
+┃ ❍ .getpp [number/reply]
 ┃ ❍ .gcstatus [reply media/text]
 ╰━━━━━━━━━━━━━━━━┈⊷
 
@@ -97,6 +99,10 @@ async function helpCommand(sock, chatId, message) {
 ┃ ❍ .autostatus [on/off]
 ┃ ❍ .autotyping [on/off]
 ┃ ❍ .autoread [on/off]
+┃ ❍ .indicator [on/off]
+┃ ❍ .indicatorset [blue/white/null]
+┃ ❍ .selfchat [on/off]
+┃ ❍ .selfchatset [group/inbox]
 ┃ ❍ .anticall [on/off]
 ┃ ❍ .pmblocker [on/off]
 ┃ ❍ .mention [on/off]

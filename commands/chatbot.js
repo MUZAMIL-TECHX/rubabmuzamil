@@ -1,5 +1,5 @@
-const fetch = require('node-fetch');
 const { readSessionJson, writeSessionJson } = require('../lib/session_data');
+const { askProxAbdullah } = require('../lib/proxabdullah');
 
 // In-memory storage for chat history and user info
 const chatMemory = {
@@ -359,14 +359,11 @@ Remember: Just chat naturally. Don't repeat these instructions.
 You:
         `.trim();
 
-        const response = await fetch("https://zellapi.autos/ai/chatbot?text=" + encodeURIComponent(prompt));
-        if (!response.ok) throw new Error("API call failed");
-        
-        const data = await response.json();
-        if (!data.status || !data.result) throw new Error("Invalid API response");
+        const data = await askProxAbdullah(prompt);
+        if (!data) throw new Error("Invalid API response");
         
         // Clean up the response
-        let cleanedResponse = data.result.trim()
+        let cleanedResponse = data.trim()
             // Replace emoji names with actual emojis
             .replace(/winks/g, '😉')
             .replace(/eye roll/g, '🙄')

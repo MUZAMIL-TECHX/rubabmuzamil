@@ -1,5 +1,4 @@
-const axios = require('axios');
-const fetch = require('node-fetch');
+const { askProxAbdullah } = require('../lib/proxabdullah');
 
 // Helper function to add reaction
 async function addReaction(sock, message, emoji) {
@@ -51,22 +50,12 @@ async function aiCommand(sock, chatId, message) {
             // 🤖 Processing reaction
             await addReaction(sock, message, '🤖');
 
-            if (command === '.gpt') {
-                // Call the GPT API
-                const response = await axios.get(`https://wormgpt.freeapihub.workers.dev/chat?q=${encodeURIComponent(query)}`, {
-                    timeout: 60000,
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                    }
-                });
-                
-                if (response.data && response.data.status && response.data.result) {
-                    const answer = response.data.result;
-                    
-                    // Styled response
-                    const styledAnswer = `
+            if (command === '.gpt' || command === '.gemini') {
+                const answer = await askProxAbdullah(query);
+                const title = command === '.gpt' ? '𝗚𝗣𝗧' : '𝗚𝗲𝗺𝗶𝗻𝗶';
+                const styledAnswer = `
 ╔═══════════════════════════════════════╗
-║        🧠 𝗚𝗣𝗧 𝗥𝗲𝘀𝗽𝗼𝗻𝘀𝗲
+║        🧠 ${title} 𝗥𝗲𝘀𝗽𝗼𝗻𝘀𝗲
 ╠═══════════════════════════════════════╣
 ║ 📌 𝗤𝘂𝗲𝗿𝘆 : ${query.substring(0, 40)}${query.length > 40 ? '...' : ''}
 ╠═══════════════════════════════════════╣
@@ -75,58 +64,10 @@ async function aiCommand(sock, chatId, message) {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 𝗠𝗨𝗭𝗔𝗠𝗜𝗟-𝗫𝗗`;
 
-                    await sock.sendMessage(chatId, {
-                        text: styledAnswer
-                    }, { quoted: message });
-                    
-                    // ✅ Done reaction
-                    await addReaction(sock, message, '✅');
-                } else {
-                    throw new Error('Invalid response from API');
-                }
-            } else if (command === '.gemini') {
-                const apis = [
-                    `https://vapis.my.id/api/gemini?q=${encodeURIComponent(query)}`,
-                    `https://api.siputzx.my.id/api/ai/gemini-pro?content=${encodeURIComponent(query)}`,
-                    `https://api.ryzendesu.vip/api/ai/gemini?text=${encodeURIComponent(query)}`,
-                    `https://zellapi.autos/ai/chatbot?text=${encodeURIComponent(query)}`,
-                    `https://api.giftedtech.my.id/api/ai/geminiai?apikey=gifted&q=${encodeURIComponent(query)}`,
-                    `https://api.giftedtech.my.id/api/ai/geminiaipro?apikey=gifted&q=${encodeURIComponent(query)}`
-                ];
-
-                for (const api of apis) {
-                    try {
-                        const response = await fetch(api);
-                        const data = await response.json();
-
-                        if (data.message || data.data || data.answer || data.result) {
-                            const answer = data.message || data.data || data.answer || data.result;
-                            
-                            // Styled response
-                            const styledAnswer = `
-╔═══════════════════════════════════════╗
-║        🧠 𝗚𝗲𝗺𝗶𝗻𝗶 𝗥𝗲𝘀𝗽𝗼𝗻𝘀𝗲
-╠═══════════════════════════════════════╣
-║ 📌 𝗤𝘂𝗲𝗿𝘆 : ${query.substring(0, 40)}${query.length > 40 ? '...' : ''}
-╠═══════════════════════════════════════╣
-║ ${answer}
-╚═══════════════════════════════════════╝
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-     𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 𝗠𝗨𝗭𝗔𝗠𝗜𝗟-𝗫𝗗`;
-
-                            await sock.sendMessage(chatId, {
-                                text: styledAnswer
-                            }, { quoted: message });
-                            
-                            // ✅ Done reaction
-                            await addReaction(sock, message, '✅');
-                            return;
-                        }
-                    } catch (e) {
-                        continue;
-                    }
-                }
-                throw new Error('All Gemini APIs failed');
+                await sock.sendMessage(chatId, {
+                    text: styledAnswer
+                }, { quoted: message });
+                await addReaction(sock, message, '✅');
             } else {
                 await addReaction(sock, message, '❌');
                 return await sock.sendMessage(chatId, { 
