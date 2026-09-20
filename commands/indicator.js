@@ -173,16 +173,27 @@ async function handleIndicator(sock, message) {
         if (recent.has(messageKey)) return true;
         recent.set(messageKey, now);
 
+        const receiptKey = {
+            remoteJid: message.key.remoteJid,
+            id: message.key.id,
+            participant: message.key.participant
+        };
+
         if (config.mode === 'blue' && typeof sock.readMessages === 'function') {
-            await sock.readMessages([{
-                remoteJid: message.key.remoteJid,
-                id: message.key.id,
-                participant: message.key.participant
-            }]);
+            // Read receipt: WhatsApp renders this as a blue tick.
+            await sock.readMessages([receiptKey]);
+        } else if (config.mode === 'white' && typeof sock.sendReceipt === 'function') {
+            // Delivery receipt: an omitted type is intentional in Baileys and
+            // produces the normal delivered/grey double tick without marking
+            // the message as read.
+            await sock.sendReceipt(
+                receiptKey.remoteJid,
+                receiptKey.participant,
+                [receiptKey.id],
+                undefined
+            );
         }
-        // White/null deliberately do not call readMessages(). WhatsApp then
-        // leaves the normal delivered/grey double tick in place. There is no
-        // client-side API that can manufacture a different grey glyph.
+        // Null deliberately sends no explicit receipt.
         return true;
     } catch (error) {
         console.error('⚠️ Indicator handling skipped:', error?.message || error);
