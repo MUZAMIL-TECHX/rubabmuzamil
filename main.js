@@ -439,11 +439,11 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 await antiVvCommand(sock, chatId, message, commandArgument(rawText, '\\.antivv'));
                 commandExecuted = true;
                 break;
-            case userMessage.startsWith('.indicator') && !userMessage.startsWith('.indicatorset'):
+            case /^\.indicator\b/i.test(userMessage):
                 await indicatorCommand(sock, chatId, message, commandArgument(rawText, '\\.indicator'));
                 commandExecuted = true;
                 break;
-            case userMessage.startsWith('.indicatorset'):
+            case /^\.indicatorset\b/i.test(userMessage):
                 await indicatorSetCommand(sock, chatId, message, commandArgument(rawText, '\\.indicatorset'));
                 commandExecuted = true;
                 break;

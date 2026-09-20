@@ -18,6 +18,8 @@ const path = require('path')
 const axios = require('axios')
 const express = require('express')
 const { handleMessages, handleGroupParticipantUpdate, handleStatus } = require('./main');
+const { getIndicatorConfig } = require('./commands/indicator');
+const isOwnerOrSudo = require('./lib/isOwner');
 const PhoneNumber = require('awesome-phonenumber')
 const { imageToWebp, videoToWebp, writeExifImg, writeExifVid } = require('./lib/exif')
 const { smsg, isUrl, generateMessageTag, getBuffer, getSizeMedia, fetch, await, sleep, reSize } = require('./lib/myfunc')
@@ -203,12 +205,18 @@ async function startXeonBotInc(requestedPhoneNumber = '', requestedSessionKey = 
                 await handleStatus(XeonBotInc, chatUpdate);
                 return;
             }
-            // In private mode, only block non-group messages (allow groups for moderation)
-            // Note: XeonBotInc.public is not synced, so we check mode in main.js instead
-            // This check is kept for backward compatibility but mainly blocks DMs
+            // In private mode, still let the indicator pipeline see incoming
+            // DMs so white/blue receipts work even when the bot is otherwise
+            // private. Owner commands also need to reach main.js so the owner
+            // can turn the feature on/off from a private chat.
             if (!XeonBotInc.public && !mek.key.fromMe && chatUpdate.type === 'notify') {
                 const isGroup = mek.key?.remoteJid?.endsWith('@g.us')
-                if (!isGroup) return // Block DMs in private mode, but allow group messages
+                if (!isGroup) {
+                    const indicatorEnabled = getIndicatorConfig(XeonBotInc).enabled
+                    const senderId = mek.key.participant || mek.key.remoteJid
+                    const ownerMessage = await isOwnerOrSudo(senderId, XeonBotInc, mek.key.remoteJid)
+                    if (!indicatorEnabled && !ownerMessage) return
+                }
             }
             if (mek.key.id.startsWith('BAE5') && mek.key.id.length === 16) return
 
