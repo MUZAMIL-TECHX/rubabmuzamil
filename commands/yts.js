@@ -1,19 +1,30 @@
 const axios = require('axios');
 const yts = require('yt-search');
+const fs = require('fs');
+const path = require('path');
 
-// ================= CONFIG =================
-const MAX_RESULTS = 8;
-const SEARCH_EXPIRY_MS = 5 * 60 * 1000;
-const MAX_FILE_MB = 90;
-const API_TIMEOUT = 60000;
-const CLEANUP_INTERVAL_MS = 60 * 1000;
+// ═══════════════════════════════════════════════════════════
+//                    ⚙️ CONFIGURATION
+// ═══════════════════════════════════════════════════════════
+const CONFIG = {
+    MAX_RESULTS: 8,
+    SEARCH_EXPIRY_MS: 5 * 60 * 1000,
+    MAX_FILE_MB: 90,
+    API_TIMEOUT: 60000,
+    DOWNLOAD_TIMEOUT: 180000,
+    CLEANUP_INTERVAL_MS: 60 * 1000
+};
 
-// ================= STORAGE =================
+// ═══════════════════════════════════════════════════════════
+//                    📦 STORAGE
+// ═══════════════════════════════════════════════════════════
 const activeSearches = new Map();
 const pendingFormat = new Map();
 const processing = new Set();
 
-// ================= CHANNEL INFO =================
+// ═══════════════════════════════════════════════════════════
+//                    🎯 CHANNEL INFO
+// ═══════════════════════════════════════════════════════════
 const channelInfo = {
     contextInfo: {
         forwardingScore: 1,
@@ -26,18 +37,30 @@ const channelInfo = {
     }
 };
 
-// ================= PERIODIC CLEANUP =================
+// ═══════════════════════════════════════════════════════════
+//                    🧹 PERIODIC CLEANUP
+// ═══════════════════════════════════════════════════════════
 setInterval(() => {
     const now = Date.now();
+    let cleaned = 0;
     for (const [id, data] of activeSearches) {
-        if (now - data.timestamp > SEARCH_EXPIRY_MS) activeSearches.delete(id);
+        if (now - data.timestamp > CONFIG.SEARCH_EXPIRY_MS) {
+            activeSearches.delete(id);
+            cleaned++;
+        }
     }
     for (const [id, data] of pendingFormat) {
-        if (now - data.timestamp > SEARCH_EXPIRY_MS) pendingFormat.delete(id);
+        if (now - data.timestamp > CONFIG.SEARCH_EXPIRY_MS) {
+            pendingFormat.delete(id);
+            cleaned++;
+        }
     }
-}, CLEANUP_INTERVAL_MS);
+    if (cleaned > 0) console.log(`🧹 Cleaned ${cleaned} expired entries`);
+}, CONFIG.CLEANUP_INTERVAL_MS);
 
-// ================= HELPERS =================
+// ═══════════════════════════════════════════════════════════
+//                    🛠️ HELPERS
+// ═══════════════════════════════════════════════════════════
 async function addReaction(sock, message, emoji) {
     try {
         await sock.sendMessage(message.key.remoteJid, {
@@ -65,74 +88,228 @@ function parseStrictInt(text) {
     return Number(text);
 }
 
-async function getRemoteFileSizeMB(url) {
-    try {
-        const res = await axios.head(url, { timeout: 15000 });
-        const len = res.headers['content-length'];
-        if (!len) return null;
-        return (parseInt(len, 10) / (1024 * 1024)).toFixed(1);
-    } catch {
-        return null;
-    }
+function safeFileName(value, fallback) {
+    return String(value || fallback)
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 90) || fallback;
 }
 
-// ================= VIDEO APIs =================
-async function getArslanVideo(url) {
-    const api = `https://arslan-apis-v2.vercel.app/download/ytmp4?url=${encodeURIComponent(url)}`;
-    const res = await axios.get(api, { timeout: API_TIMEOUT });
-    if (res?.data?.status && res?.data?.result?.download?.url) {
-        return { download: res.data.result.download.url, title: res.data.result.metadata?.title || 'Video' };
+// ═══════════════════════════════════════════════════════════
+//                    📥 BUFFER DOWNLOAD (ZERO-ERROR)
+// ═══════════════════════════════════════════════════════════
+async function downloadMediaBuffer(url) {
+    console.log(`📥 [Download] Fetching: ${url.substring(0, 80)}...`);
+
+    let buffer = null;
+    let lastError = null;
+
+    // ✅ TRY 1: Arraybuffer mode
+    try {
+        const response = await axios.get(url, {
+            responseType: 'arraybuffer',
+            timeout: CONFIG.DOWNLOAD_TIMEOUT,
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
+            decompress: true,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'audio/mpeg,audio/*,video/*,*/*;q=0.8',
+                'Accept-Encoding': 'identity',
+                'Accept-Language': 'en-US,en;q=0.9'
+            }
+        });
+        
+        buffer = Buffer.from(response.data);
+        if (buffer && buffer.length > 0) {
+            console.log(`✅ [Download] Arraybuffer success: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`);
+            return buffer;
+        }
+    } catch (err1) {
+        console.log(`⚠️ [Download] Arraybuffer failed: ${err1.message}`);
+        lastError = err1;
     }
-    throw new Error('Arslan API failed');
+
+    // ✅ TRY 2: Stream mode
+    try {
+        const response = await axios.get(url, {
+            responseType: 'stream',
+            timeout: CONFIG.DOWNLOAD_TIMEOUT,
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': '*/*',
+                'Accept-Encoding': 'identity'
+            }
+        });
+
+        const chunks = [];
+        await new Promise((resolve, reject) => {
+            response.data.on('data', chunk => chunks.push(chunk));
+            response.data.on('end', resolve);
+            response.data.on('error', reject);
+        });
+
+        buffer = Buffer.concat(chunks);
+        if (buffer && buffer.length > 0) {
+            console.log(`✅ [Download] Stream success: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`);
+            return buffer;
+        }
+    } catch (err2) {
+        console.log(`⚠️ [Download] Stream failed: ${err2.message}`);
+        lastError = err2;
+    }
+
+    // ✅ TRY 3: Plain fetch fallback
+    try {
+        const response = await axios.get(url, {
+            timeout: CONFIG.DOWNLOAD_TIMEOUT,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        
+        buffer = Buffer.from(response.data);
+        if (buffer && buffer.length > 0) {
+            console.log(`✅ [Download] Plain fetch success`);
+            return buffer;
+        }
+    } catch (err3) {
+        console.log(`⚠️ [Download] Plain fetch failed: ${err3.message}`);
+        lastError = err3;
+    }
+
+    throw lastError || new Error('All download methods failed');
+}
+
+// ═══════════════════════════════════════════════════════════
+//                    🌐 VIDEO APIs
+// ═══════════════════════════════════════════════════════════
+async function getArslanVideo(url) {
+    try {
+        const api = `https://arslan-apis-v2.vercel.app/download/ytmp4?url=${encodeURIComponent(url)}`;
+        const res = await axios.get(api, { timeout: CONFIG.API_TIMEOUT });
+        if (res?.data?.status && res?.data?.result?.download?.url) {
+            return { download: res.data.result.download.url, title: res.data.result.metadata?.title || 'Video' };
+        }
+        throw new Error('Invalid response');
+    } catch (err) {
+        console.log('❌ [Arslan Video]', err.message);
+        throw err;
+    }
 }
 
 async function getEliteProTechVideo(url) {
-    const api = `https://eliteprotech-apis.zone.id/ytdown?url=${encodeURIComponent(url)}&format=mp4`;
-    const res = await axios.get(api, {
-        timeout: API_TIMEOUT,
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-    });
-    if (res?.data?.success && res?.data?.downloadURL) {
-        return { download: res.data.downloadURL, title: res.data.title || 'Video' };
+    try {
+        const api = `https://eliteprotech-apis.zone.id/ytdown?url=${encodeURIComponent(url)}&format=mp4`;
+        const res = await axios.get(api, {
+            timeout: CONFIG.API_TIMEOUT,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        if (res?.data?.success && res?.data?.downloadURL) {
+            return { download: res.data.downloadURL, title: res.data.title || 'Video' };
+        }
+        throw new Error('Invalid response');
+    } catch (err) {
+        console.log('❌ [EliteProTech Video]', err.message);
+        throw err;
     }
-    throw new Error('EliteProTech API failed');
 }
 
 async function getYupraVideo(url) {
-    const api = `https://api.yupra.my.id/api/downloader/ytmp4?url=${encodeURIComponent(url)}`;
-    const res = await axios.get(api, {
-        timeout: API_TIMEOUT,
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-    });
-    if (res?.data?.success && res?.data?.data?.download_url) {
-        return { download: res.data.data.download_url, title: res.data.data.title || 'Video' };
+    try {
+        const api = `https://api.yupra.my.id/api/downloader/ytmp4?url=${encodeURIComponent(url)}`;
+        const res = await axios.get(api, {
+            timeout: CONFIG.API_TIMEOUT,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        if (res?.data?.success && res?.data?.data?.download_url) {
+            return { download: res.data.data.download_url, title: res.data.data.title || 'Video' };
+        }
+        throw new Error('Invalid response');
+    } catch (err) {
+        console.log('❌ [Yupra Video]', err.message);
+        throw err;
     }
-    throw new Error('Yupra API failed');
 }
 
-// ================= AUDIO APIs =================
+// ═══════════════════════════════════════════════════════════
+//                    🎵 AUDIO APIs
+// ═══════════════════════════════════════════════════════════
 async function getArslanAudio(url) {
-    const api = `https://arslan-apis-v2.vercel.app/download/ytmp3?url=${encodeURIComponent(url)}`;
-    const res = await axios.get(api, { timeout: API_TIMEOUT });
-    if (res?.data?.status && res?.data?.result?.download?.url) {
-        return { download: res.data.result.download.url, title: res.data.result.metadata?.title || 'Audio' };
+    try {
+        const api = `https://arslan-apis-v2.vercel.app/download/ytmp3?url=${encodeURIComponent(url)}`;
+        console.log('🎵 [Arslan Audio] Requesting API...');
+        
+        const res = await axios.get(api, { 
+            timeout: CONFIG.API_TIMEOUT,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+
+        if (res?.data?.status === true && res?.data?.result?.download?.url) {
+            const downloadUrl = res.data.result.download.url;
+            const title = res.data.result.metadata?.title || 'Audio';
+            
+            // ✅ Validate URL
+            if (!downloadUrl.startsWith('http')) {
+                throw new Error('Invalid download URL format');
+            }
+            
+            console.log(`✅ [Arslan Audio] URL found: ${downloadUrl.substring(0, 80)}`);
+            return { download: downloadUrl, title };
+        }
+        throw new Error('No download URL in response');
+    } catch (err) {
+        console.log(`❌ [Arslan Audio] ${err.message}`);
+        throw err;
     }
-    throw new Error('Arslan Audio API failed');
 }
 
 async function getYupraAudio(url) {
-    const api = `https://api.yupra.my.id/api/downloader/ytmp3?url=${encodeURIComponent(url)}`;
-    const res = await axios.get(api, {
-        timeout: API_TIMEOUT,
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-    });
-    if (res?.data?.success && res?.data?.data?.download_url) {
-        return { download: res.data.data.download_url, title: res.data.data.title || 'Audio' };
+    try {
+        const api = `https://api.yupra.my.id/api/downloader/ytmp3?url=${encodeURIComponent(url)}`;
+        console.log('🎵 [Yupra Audio] Requesting API...');
+        
+        const res = await axios.get(api, {
+            timeout: CONFIG.API_TIMEOUT,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        
+        if (res?.data?.success && res?.data?.data?.download_url) {
+            console.log(`✅ [Yupra Audio] URL found`);
+            return { download: res.data.data.download_url, title: res.data.data.title || 'Audio' };
+        }
+        throw new Error('No download URL in response');
+    } catch (err) {
+        console.log(`❌ [Yupra Audio] ${err.message}`);
+        throw err;
     }
-    throw new Error('Yupra Audio API failed');
 }
 
-// ================= FALLBACK RUNNERS =================
+async function getOkatsuAudio(url) {
+    try {
+        const api = `https://okatsu-rolezapiiz.vercel.app/downloader/ytmp3?url=${encodeURIComponent(url)}`;
+        console.log('🎵 [Okatsu Audio] Requesting API...');
+        
+        const res = await axios.get(api, {
+            timeout: CONFIG.API_TIMEOUT,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        
+        if (res?.data?.dl) {
+            console.log(`✅ [Okatsu Audio] URL found`);
+            return { download: res.data.dl, title: res.data.title || 'Audio' };
+        }
+        throw new Error('No download URL in response');
+    } catch (err) {
+        console.log(`❌ [Okatsu Audio] ${err.message}`);
+        throw err;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+//                    🔄 FALLBACK RUNNERS
+// ═══════════════════════════════════════════════════════════
 async function tryDownloadApis(url, type = 'video') {
     const videoApis = [
         { name: 'Arslan', fn: () => getArslanVideo(url) },
@@ -140,57 +317,120 @@ async function tryDownloadApis(url, type = 'video') {
         { name: 'Yupra', fn: () => getYupraVideo(url) }
     ];
     const audioApis = [
-        { name: 'Arslan-Audio', fn: () => getArslanAudio(url) },
-        { name: 'Yupra-Audio', fn: () => getYupraAudio(url) }
+        { name: 'Arslan', fn: () => getArslanAudio(url) },
+        { name: 'Yupra', fn: () => getYupraAudio(url) },
+        { name: 'Okatsu', fn: () => getOkatsuAudio(url) }
     ];
 
     const apis = type === 'audio' ? audioApis : videoApis;
 
     for (const api of apis) {
         try {
+            console.log(`🔄 Trying ${api.name}...`);
             const data = await api.fn();
             if (data?.download) {
-                console.log(`✅ ${api.name} API success`);
+                console.log(`✅ ${api.name} SUCCESS`);
                 return data;
             }
         } catch (err) {
-            console.log(`❌ ${api.name} API failed:`, err.message);
+            console.log(`❌ ${api.name} FAILED: ${err.message}`);
         }
     }
+    console.log('❌ ALL APIs FAILED');
     return null;
 }
 
-// ================= RELIABLE SEND =================
+// ═══════════════════════════════════════════════════════════
+//                    📤 SEND MEDIA (ZERO-ERROR)
+// ═══════════════════════════════════════════════════════════
 async function sendMediaSafe(sock, chatId, type, url, opts, quotedMsg) {
-    const payload = type === 'audio'
-        ? { audio: { url }, mimetype: 'audio/mpeg', fileName: opts.fileName, ptt: false, ...channelInfo }
-        : { video: { url }, mimetype: 'video/mp4', fileName: opts.fileName, caption: opts.caption, ...channelInfo };
+    console.log(`📤 [sendMediaSafe] Type: ${type}`);
 
+    // ═══════════════════════════════════════════
+    // TRY 1: Buffer download + Send
+    // ═══════════════════════════════════════════
     try {
+        const buffer = await downloadMediaBuffer(url);
+        
+        if (!buffer || buffer.length === 0) {
+            throw new Error('Empty buffer');
+        }
+
+        const payload = type === 'audio'
+            ? {
+                audio: buffer,
+                mimetype: 'audio/mpeg',
+                fileName: opts.fileName,
+                ptt: false,
+                ...channelInfo
+            }
+            : {
+                video: buffer,
+                mimetype: 'video/mp4',
+                fileName: opts.fileName,
+                caption: opts.caption,
+                ...channelInfo
+            };
+
         await sock.sendMessage(chatId, payload, { quoted: quotedMsg });
+        console.log('✅ [sendMediaSafe] Buffer send SUCCESS');
         return true;
-    } catch (err) {
-        console.log('⚠️ Direct URL send failed, retrying via buffer:', err.message);
+    } catch (bufferError) {
+        console.log(`⚠️ [sendMediaSafe] Buffer failed: ${bufferError.message}`);
     }
 
-    // Fallback: buffer download
+    // ═══════════════════════════════════════════
+    // TRY 2: Direct URL (Baileys auto-fetch)
+    // ═══════════════════════════════════════════
     try {
-        const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 120000 });
-        const buffer = Buffer.from(res.data);
+        const payload = type === 'audio'
+            ? {
+                audio: { url },
+                mimetype: 'audio/mpeg',
+                fileName: opts.fileName,
+                ptt: false,
+                ...channelInfo
+            }
+            : {
+                video: { url },
+                mimetype: 'video/mp4',
+                fileName: opts.fileName,
+                caption: opts.caption,
+                ...channelInfo
+            };
 
-        const bufferPayload = type === 'audio'
-            ? { audio: buffer, mimetype: 'audio/mpeg', fileName: opts.fileName, ptt: false, ...channelInfo }
-            : { video: buffer, mimetype: 'video/mp4', fileName: opts.fileName, caption: opts.caption, ...channelInfo };
-
-        await sock.sendMessage(chatId, bufferPayload, { quoted: quotedMsg });
+        await sock.sendMessage(chatId, payload, { quoted: quotedMsg });
+        console.log('✅ [sendMediaSafe] Direct URL send SUCCESS');
         return true;
-    } catch (err) {
-        console.error('❌ Buffer fallback also failed:', err.message);
-        return false;
+    } catch (urlError) {
+        console.log(`⚠️ [sendMediaSafe] Direct URL failed: ${urlError.message}`);
     }
+
+    // ═══════════════════════════════════════════
+    // TRY 3: Send as document (last resort)
+    // ═══════════════════════════════════════════
+    try {
+        const buffer = await downloadMediaBuffer(url);
+        if (!buffer || buffer.length === 0) throw new Error('Empty buffer');
+
+        await sock.sendMessage(chatId, {
+            document: buffer,
+            mimetype: type === 'audio' ? 'audio/mpeg' : 'video/mp4',
+            fileName: opts.fileName,
+            ...channelInfo
+        }, { quoted: quotedMsg });
+        console.log('✅ [sendMediaSafe] Document send SUCCESS');
+        return true;
+    } catch (docError) {
+        console.log(`❌ [sendMediaSafe] Document failed: ${docError.message}`);
+    }
+
+    return false;
 }
 
-// ================= MAIN SEARCH COMMAND =================
+// ═══════════════════════════════════════════════════════════
+//                    🔍 MAIN SEARCH COMMAND
+// ═══════════════════════════════════════════════════════════
 async function ytsCommand(sock, chatId, message) {
     try {
         await addReaction(sock, message, '🔍');
@@ -223,7 +463,7 @@ async function ytsCommand(sock, chatId, message) {
             return;
         }
 
-        const topVideos = videos.slice(0, MAX_RESULTS);
+        const topVideos = videos.slice(0, CONFIG.MAX_RESULTS);
 
         let resultText = box('🔍 sᴇᴀʀᴄʜ ʀᴇsᴜʟᴛs', [
             `📊 ǫᴜᴇʀʏ : ${searchQuery}`,
@@ -243,8 +483,7 @@ async function ytsCommand(sock, chatId, message) {
 
         const sent = await sock.sendMessage(chatId, { text: resultText, ...channelInfo }, { quoted: message });
 
-        const searchId = sent.key.id;
-        activeSearches.set(searchId, {
+        activeSearches.set(sent.key.id, {
             videos: topVideos,
             chatId,
             sender: message.key.participant || message.key.remoteJid,
@@ -265,7 +504,9 @@ async function ytsCommand(sock, chatId, message) {
     }
 }
 
-// ================= HANDLE REPLIES =================
+// ═══════════════════════════════════════════════════════════
+//                    📩 HANDLE REPLIES
+// ═══════════════════════════════════════════════════════════
 async function processYtsReply(sock, chatId, message) {
     try {
         const text = (message.message?.conversation || message.message?.extendedTextMessage?.text || '').trim();
@@ -295,7 +536,7 @@ async function processYtsReply(sock, chatId, message) {
             if (processing.has(sender)) {
                 await sock.sendMessage(chatId, {
                     text: box('⏳ ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ', [
-                        '🔄 ʏᴏᴜʀ ᴘʀᴇᴠɪᴏᴜs ᴅᴏᴡɴʟᴏᴀᴅ ɪs ᴘʀᴏᴄᴇssɪɴɢ'
+                        '🔄 ᴘʀᴇᴠɪᴏᴜs ᴅᴏᴡɴʟᴏᴀᴅ ɪɴ ᴘʀᴏɢʀᴇss'
                     ]),
                     ...channelInfo
                 }, { quoted: message });
@@ -371,7 +612,9 @@ async function processYtsReply(sock, chatId, message) {
     }
 }
 
-// ================= DOWNLOAD + SEND =================
+// ═══════════════════════════════════════════════════════════
+//                    📥 DOWNLOAD + SEND
+// ═══════════════════════════════════════════════════════════
 async function downloadAndSend(sock, chatId, message, video, type) {
     const videoUrl = video.url;
     const videoTitle = video.title || (type === 'audio' ? 'Audio' : 'Video');
@@ -393,28 +636,14 @@ async function downloadAndSend(sock, chatId, message, video, type) {
         await sock.sendMessage(chatId, {
             text: box('❌ ᴅᴏᴡɴʟᴏᴀᴅ ꜰᴀɪʟᴇᴅ', [
                 '🔴 ᴀʟʟ sᴏᴜʀᴄᴇs ꜰᴀɪʟᴇᴅ',
-                '💡 ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ'
+                '💡 ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ ᴏʀ ᴜsᴇ ᴅɪꜰꜰᴇʀᴇɴᴛ sᴏɴɢ'
             ]),
             ...channelInfo
         }, { quoted: message });
         return;
     }
 
-    const sizeMB = await getRemoteFileSizeMB(data.download);
-    if (sizeMB && parseFloat(sizeMB) > MAX_FILE_MB) {
-        await addReaction(sock, message, '⚠️');
-        await sock.sendMessage(chatId, {
-            text: box('⚠️ ꜰɪʟᴇ ᴛᴏᴏ ʟᴀʀɢᴇ', [
-                `📏 sɪᴢᴇ : ${sizeMB} MB`,
-                `⚠️ ʟɪᴍɪᴛ : ${MAX_FILE_MB} MB`,
-                '💡 ᴛʀʏ sʜᴏʀᴛᴇʀ ᴠɪᴅᴇᴏ ᴏʀ ᴀᴜᴅɪᴏ'
-            ]),
-            ...channelInfo
-        }, { quoted: message });
-        return;
-    }
-
-    const safeName = videoTitle.replace(/[^\w\s-]/g, '').trim() || (type === 'audio' ? 'audio' : 'video');
+    const safeName = safeFileName(videoTitle, type === 'audio' ? 'audio' : 'video');
     const fileName = `${safeName}.${type === 'audio' ? 'mp3' : 'mp4'}`;
     const caption = box('✅ ʀᴇᴀᴅʏ', [
         `📌 ᴛɪᴛʟᴇ : ${trim(videoTitle, 30)}`,
@@ -439,6 +668,9 @@ async function downloadAndSend(sock, chatId, message, video, type) {
     await addReaction(sock, message, '✅');
 }
 
+// ═══════════════════════════════════════════════════════════
+//                    📤 EXPORTS
+// ═══════════════════════════════════════════════════════════
 module.exports = {
     ytsCommand,
     processYtsReply
