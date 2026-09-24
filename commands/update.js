@@ -84,6 +84,21 @@ function downloadFile(url, dest, visited = new Set()) {
     });
 }
 
+function normalizeZipUrl(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return raw;
+
+    try {
+        const parsed = new URL(raw);
+        if (parsed.hostname !== 'github.com') return raw;
+        const parts = parsed.pathname.split('/').filter(Boolean);
+        if (parts.length === 2) {
+            return `https://github.com/${parts[0]}/${parts[1]}/archive/refs/heads/main.zip`;
+        }
+    } catch (_) {}
+    return raw;
+}
+
 async function extractZip(zipPath, outDir) {
     // Try to use platform tools; no extra npm modules required
     if (process.platform === 'win32') {
@@ -127,7 +142,9 @@ function copyRecursive(src, dest, ignore = [], relative = '', outList = []) {
 }
 
 async function updateViaZip(sock, chatId, message, zipOverride) {
-    const zipUrl = (zipOverride || settings.updateZipUrl || process.env.UPDATE_ZIP_URL || '').trim();
+    const zipUrl = normalizeZipUrl(
+        (zipOverride || settings.updateZipUrl || process.env.UPDATE_ZIP_URL || '').trim()
+    );
     if (!zipUrl) {
         throw new Error('No ZIP URL configured. Set settings.updateZipUrl or UPDATE_ZIP_URL env.');
     }
@@ -174,20 +191,14 @@ async function updateViaZip(sock, chatId, message, zipOverride) {
     return { copiedFiles: copied };
 }
 
-async function restartProcess(sock, chatId, message) {
-    try {
-        await sock.sendMessage(chatId, { text: '✅ Update complete! Restarting…' }, { quoted: message });
-    } catch {}
-    try {
-        // Preferred: PM2
-        await run('pm2 restart all');
-        return;
-    } catch {}
-    // Panels usually auto-restart when the process exits.
-    // Exit after a short delay to allow the above message to flush.
-    setTimeout(() => {
-        process.exit(0);
-    }, 500);
+function reloadApplicationModules() {
+    const appRoot = path.resolve(process.cwd());
+    for (const moduleId of Object.keys(require.cache)) {
+        const normalized = path.resolve(moduleId);
+        if (!normalized.startsWith(`${appRoot}${path.sep}`)) continue;
+        if (normalized.includes(`${path.sep}node_modules${path.sep}`)) continue;
+        delete require.cache[moduleId];
+    }
 }
 
 async function updateCommand(sock, chatId, message, zipOverride) {
@@ -201,25 +212,15 @@ async function updateCommand(sock, chatId, message, zipOverride) {
     try {
         // Minimal UX
         await sock.sendMessage(chatId, { text: '🔄 Updating the bot, please wait…' }, { quoted: message });
-        if (await hasGitRepo()) {
-            // silent
-            const { oldRev, newRev, alreadyUpToDate, commits, files } = await updateViaGit();
-            // Short message only: version info
-            const summary = alreadyUpToDate ? `✅ Already up to date: ${newRev}` : `✅ Updated to ${newRev}`;
-            console.log('[update] summary generated');
-            // silent
-            await run('npm install --no-audit --no-fund');
-        } else {
-            const { copiedFiles } = await updateViaZip(sock, chatId, message, zipOverride);
-            // silent
-        }
-        try {
-            const v = require('../settings').version || '';
-            await sock.sendMessage(chatId, { text: `✅ Update done. Restarting…` }, { quoted: message });
-        } catch {
-            await sock.sendMessage(chatId, { text: '✅ Restared Successfully\n Type .ping to check latest version.' }, { quoted: message });
-        }
-        await restartProcess(sock, chatId, message);
+        // Always use the configured repository archive. Railway containers
+        // commonly do not include .git, and this also avoids git reset/clean
+        // touching runtime data or interrupting the connected socket.
+        await updateViaZip(sock, chatId, message, zipOverride);
+        await run('npm install --no-audit --no-fund');
+        reloadApplicationModules();
+        await sock.sendMessage(chatId, {
+            text: '✅ Update complete. New bot code loaded without disconnecting the current session.'
+        }, { quoted: message });
     } catch (err) {
         console.error('Update failed:', err);
         await sock.sendMessage(chatId, { text: `❌ Update failed:\n${String(err.message || err)}` }, { quoted: message });

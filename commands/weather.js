@@ -105,7 +105,7 @@ async function weatherCommand(sock, chatId, message, city) {
         reply += `└─────────────────────┘\n\n`;
 
         reply += `❖━━━━━━━━━━━━━━━━━━━❖\n`;
-        reply += `  𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 𝗠𝘂𝘇𝗮𝗺𝗶𝗹-𝗫𝗗\n`;
+        reply += `  > 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋\n`;
         reply += `❖━━━━━━━━━━━━━━━━━━━❖`;
 
         await sock.sendMessage(
@@ -144,7 +144,7 @@ async function weatherCommand(sock, chatId, message, city) {
         }
 
         errorMessage += `\n\n❖━━━━━━━━━━━━━━━━━━━❖\n`;
-        errorMessage += `  𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 𝗠𝘂𝘇𝗮𝗺𝗶𝗹-𝗫𝗗\n`;
+        errorMessage += `  > 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋\n`;
         errorMessage += `❖━━━━━━━━━━━━━━━━━━━❖`;
 
         await sock.sendMessage(

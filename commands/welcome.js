@@ -76,7 +76,7 @@ async function handleJoinEvent(sock, id, participants) {
                     hour12: true
                 });
                 
-                finalMessage = `╭╼━≪•𝗪𝗲𝗹𝗹𝗰𝗼𝗺𝗲•≫━╾╮\n┃𝗪𝗲𝗹𝗰𝗼𝗺𝗲: @${displayName} 👋\n┃Member count: #${groupMetadata.participants.length}\n┃𝗧𝗶𝗺𝗲: ${timeString}⏰\n╰━━━━━━━━━━━━━━━╯\n\n*@${displayName}* Welcome to *${groupName}*! 🎉\n*𝗚𝗿𝗼𝘂𝗽 𝗗𝗲𝘀𝗰𝗿𝗶𝗽𝘁𝗶𝗼𝗻*\n${groupDesc}\n\n> *𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 𝗠𝘂𝘇𝗮𝗺𝗶𝗹-𝗫𝗗*`;
+                finalMessage = `╭╼━≪•𝗪𝗲𝗹𝗹𝗰𝗼𝗺𝗲•≫━╾╮\n┃𝗪𝗲𝗹𝗰𝗼𝗺𝗲: @${displayName} 👋\n┃Member count: #${groupMetadata.participants.length}\n┃𝗧𝗶𝗺𝗲: ${timeString}⏰\n╰━━━━━━━━━━━━━━━╯\n\n*@${displayName}* Welcome to *${groupName}*! 🎉\n*𝗚𝗿𝗼𝘂𝗽 𝗗𝗲𝘀𝗰𝗿𝗶𝗽𝘁𝗶𝗼𝗻*\n${groupDesc}\n\n> *> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋*`;
             }
             
             // Try to send with image first (always try images)

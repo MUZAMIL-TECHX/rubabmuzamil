@@ -73,8 +73,7 @@ async function truecallerCommand(sock, chatId, message, number) {
   👤 𝗡𝗮𝗺𝗲   : ${name}
 
 ❖━━━━━━━━━━━━━━━━━━━❖
-       𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆
-    𝗠𝘂𝘇𝗮𝗺𝗶𝗹-𝗫𝗗
+       > 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋
 ❖━━━━━━━━━━━━━━━━━━━❖`;
 
         await sock.sendMessage(
@@ -104,7 +103,7 @@ async function truecallerCommand(sock, chatId, message, number) {
         
         errorMessage += '\n\n💡 Check number format:\n.truecaller 923001234567';
         errorMessage += '\n\n❖━━━━━━━━━━━━━━━━━━━❖\n';
-        errorMessage += '  𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 𝗠𝘂𝘇𝗮𝗺𝗶𝗹-𝗫𝗗\n';
+        errorMessage += '  > 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋\n';
         errorMessage += '❖━━━━━━━━━━━━━━━━━━━❖';
         
         await sock.sendMessage(
