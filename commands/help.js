@@ -1,9 +1,30 @@
 const settings = require('../settings');
 const { getSessionSettings } = require('../lib/session_data');
 
+// ===============================
+// 🎯 BOT DP URL
+// ===============================
+const BOT_DP_URL = 'https://n.uguu.se/ujpdfzjH.jpg';
+
+// ===============================
+// 🎯 CHANNEL INFO
+// ===============================
+const channelInfo = {
+    contextInfo: {
+        forwardingScore: 1,
+        isForwarded: true,
+        forwardedNewsletterMessageInfo: {
+            newsletterJid: '120363426106687970@newsletter',
+            newsletterName: '𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋',
+            serverMessageId: -1
+        }
+    }
+};
+
 async function helpCommand(sock, chatId, message) {
     const sessionSettings = getSessionSettings(sock);
-    
+
+    // 📄 Reaction
     await sock.sendMessage(chatId, {
         react: {
             text: '📄',
@@ -253,37 +274,26 @@ async function helpCommand(sock, chatId, message) {
       𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
 
     try {
-        const imageUrl = typeof sock.botImageUrl === 'string'
-            ? sock.botImageUrl.trim()
-            : (typeof global.botImageUrl === 'string' ? global.botImageUrl.trim() : '');
+        // ✅ Send with DP Image
+        await sock.sendMessage(chatId, {
+            image: { url: BOT_DP_URL },
+            caption: helpMessage,
+            ...channelInfo
+        }, { quoted: message });
 
-        const channelInfo = {
-            contextInfo: {
-                forwardingScore: 1,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363426106687970@newsletter',
-                    newsletterName: '𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋',
-                    serverMessageId: -1
-                }
-            }
-        };
-
-        if (imageUrl) {
-            await sock.sendMessage(chatId, {
-                image: { url: imageUrl },
-                caption: helpMessage,
-                ...channelInfo
-            }, { quoted: message });
-        } else {
+    } catch (error) {
+        console.error('Error sending help menu with image:', error);
+        
+        // ✅ Fallback: Send text only
+        try {
             await sock.sendMessage(chatId, { 
                 text: helpMessage,
                 ...channelInfo
             }, { quoted: message });
+        } catch (fallbackError) {
+            console.error('Fallback also failed:', fallbackError);
+            await sock.sendMessage(chatId, { text: helpMessage }, { quoted: message });
         }
-    } catch (error) {
-        console.error('Error sending help menu:', error);
-        await sock.sendMessage(chatId, { text: helpMessage }, { quoted: message });
     }
 }
 
