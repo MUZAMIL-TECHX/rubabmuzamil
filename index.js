@@ -17,7 +17,11 @@ const FileType = require('file-type')
 const path = require('path')
 const axios = require('axios')
 const express = require('express')
-const { handleMessages, handleGroupParticipantUpdate, handleStatus } = require('./main');
+// Resolve message handlers at call time so .update can hot-reload the
+// application modules while keeping the current WhatsApp socket connected.
+function getMainHandlers() {
+    return require('./main');
+}
 const { getIndicatorConfig } = require('./commands/indicator');
 const isOwnerOrSudo = require('./lib/isOwner');
 const PhoneNumber = require('awesome-phonenumber')
@@ -81,10 +85,10 @@ setInterval(() => {
 let phoneNumber = process.env.PHONE_NUMBER || ""
 let owner = JSON.parse(fs.readFileSync(join(DATA_DIR, 'owner.json')))
 
-global.botname = "MUZAMIL-XD"
+global.botname = "𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋"
 global.themeemoji = "•"
 // Menu DP: paste any public image URL here. No local assets folder is required.
-global.botImageUrl = "https://i.ibb.co/yz79pyg/1000040527.png"
+global.botImageUrl = "https://n.uguu.se/vXyuLjNl.jpg"
 const useMobile = process.argv.includes("--mobile")
 // Every WhatsApp account gets its own auth directory and socket.  The old
 // implementation kept these as singletons, which made the second pairing
@@ -202,7 +206,7 @@ async function startXeonBotInc(requestedPhoneNumber = '', requestedSessionKey = 
             if (!mek.message) return
             mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message
             if (mek.key && mek.key.remoteJid === 'status@broadcast') {
-                await handleStatus(XeonBotInc, chatUpdate);
+                await getMainHandlers().handleStatus(XeonBotInc, chatUpdate);
                 return;
             }
             // In private mode, still let the indicator pipeline see incoming
@@ -226,7 +230,7 @@ async function startXeonBotInc(requestedPhoneNumber = '', requestedSessionKey = 
             }
 
             try {
-                await handleMessages(XeonBotInc, chatUpdate, true)
+                await getMainHandlers().handleMessages(XeonBotInc, chatUpdate, true)
             } catch (err) {
                 console.error("Error in handleMessages:", err)
                 // Only try to send error message if we have a valid chatId
@@ -238,7 +242,7 @@ async function startXeonBotInc(requestedPhoneNumber = '', requestedSessionKey = 
                             isForwarded: true,
                             forwardedNewsletterMessageInfo: {
                                 newsletterJid: '120363426106687970@newsletter',
-                                newsletterName: 'MUZAMIL-XD',
+                                newsletterName: '𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋',
                                 serverMessageId: -1
                             }
                         }
@@ -357,7 +361,7 @@ async function startXeonBotInc(requestedPhoneNumber = '', requestedSessionKey = 
                         isForwarded: true,
                         forwardedNewsletterMessageInfo: {
                             newsletterJid: '120363426106687970@newsletter',
-                            newsletterName: 'MUZAMIL-XD',
+                            newsletterName: '𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋',
                             serverMessageId: -1
                         }
                     }
@@ -372,7 +376,7 @@ async function startXeonBotInc(requestedPhoneNumber = '', requestedSessionKey = 
             console.log(chalk.magenta(`\n${global.themeemoji || '•'} YT CHANNEL: @TeamRedXhackers`))
             console.log(chalk.magenta(`${global.themeemoji || '•'} GITHUB: MUZAMIL-TECHX`))
             console.log(chalk.magenta(`${global.themeemoji || '•'} WA NUMBER: ${owner}`))
-            console.log(chalk.magenta(`${global.themeemoji || '•'} CREDIT: MUZAMIL KHAN`))
+            console.log(chalk.magenta(`${global.themeemoji || '•'} CREDIT: 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`))
             console.log(chalk.green(`${global.themeemoji || '•'} 🤖 Bot Connected Successfully! ✅`))
             console.log(chalk.blue(`Bot Version: ${settings.version}`))
         }
@@ -448,21 +452,21 @@ async function startXeonBotInc(requestedPhoneNumber = '', requestedSessionKey = 
     });
 
     XeonBotInc.ev.on('group-participants.update', async (update) => {
-        await handleGroupParticipantUpdate(XeonBotInc, update);
+        await getMainHandlers().handleGroupParticipantUpdate(XeonBotInc, update);
     });
 
     XeonBotInc.ev.on('messages.upsert', async (m) => {
         if (m.messages[0].key && m.messages[0].key.remoteJid === 'status@broadcast') {
-            await handleStatus(XeonBotInc, m);
+            await getMainHandlers().handleStatus(XeonBotInc, m);
         }
     });
 
     XeonBotInc.ev.on('status.update', async (status) => {
-        await handleStatus(XeonBotInc, status);
+        await getMainHandlers().handleStatus(XeonBotInc, status);
     });
 
     XeonBotInc.ev.on('messages.reaction', async (status) => {
-        await handleStatus(XeonBotInc, status);
+        await getMainHandlers().handleStatus(XeonBotInc, status);
     });
 
     return XeonBotInc
