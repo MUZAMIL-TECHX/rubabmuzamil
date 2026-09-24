@@ -1,20 +1,29 @@
 const axios = require('axios');
 const yts = require('yt-search');
 
-// ================= CONFIG =================
-const MAX_RESULTS = 8;
-const SEARCH_EXPIRY_MS = 5 * 60 * 1000;
-const MAX_FILE_MB = 90;
-const API_TIMEOUT = 60000;
-const CLEANUP_INTERVAL_MS = 60 * 1000;
+// ═══════════════════════════════════════════════════════════
+//                    ⚙️ CONFIGURATION
+// ═══════════════════════════════════════════════════════════
+const CONFIG = {
+    MAX_RESULTS: 8,
+    SEARCH_EXPIRY_MS: 5 * 60 * 1000,
+    MAX_FILE_MB: 90,
+    API_TIMEOUT: 60000,
+    CLEANUP_INTERVAL_MS: 60 * 1000,
+    MAX_CONCURRENT_DOWNLOADS: 1
+};
 
-// ================= STORAGE =================
+// ═══════════════════════════════════════════════════════════
+//                    📦 STORAGE
+// ═══════════════════════════════════════════════════════════
 const activeSearches = new Map();
 const pendingFormat = new Map();
 const pendingQuality = new Map();
 const processing = new Set();
 
-// ================= CHANNEL INFO =================
+// ═══════════════════════════════════════════════════════════
+//                    🎯 CHANNEL INFO
+// ═══════════════════════════════════════════════════════════
 const channelInfo = {
     contextInfo: {
         forwardingScore: 1,
@@ -27,21 +36,36 @@ const channelInfo = {
     }
 };
 
-// ================= PERIODIC CLEANUP =================
+// ═══════════════════════════════════════════════════════════
+//                    🧹 PERIODIC CLEANUP
+// ═══════════════════════════════════════════════════════════
 setInterval(() => {
     const now = Date.now();
+    let cleaned = 0;
     for (const [id, data] of activeSearches) {
-        if (now - data.timestamp > SEARCH_EXPIRY_MS) activeSearches.delete(id);
+        if (now - data.timestamp > CONFIG.SEARCH_EXPIRY_MS) {
+            activeSearches.delete(id);
+            cleaned++;
+        }
     }
     for (const [id, data] of pendingFormat) {
-        if (now - data.timestamp > SEARCH_EXPIRY_MS) pendingFormat.delete(id);
+        if (now - data.timestamp > CONFIG.SEARCH_EXPIRY_MS) {
+            pendingFormat.delete(id);
+            cleaned++;
+        }
     }
     for (const [id, data] of pendingQuality) {
-        if (now - data.timestamp > SEARCH_EXPIRY_MS) pendingQuality.delete(id);
+        if (now - data.timestamp > CONFIG.SEARCH_EXPIRY_MS) {
+            pendingQuality.delete(id);
+            cleaned++;
+        }
     }
-}, CLEANUP_INTERVAL_MS);
+    if (cleaned > 0) console.log(`🧹 Cleaned ${cleaned} expired entries`);
+}, CONFIG.CLEANUP_INTERVAL_MS);
 
-// ================= HELPERS =================
+// ═══════════════════════════════════════════════════════════
+//                    🛠️ HELPERS
+// ═══════════════════════════════════════════════════════════
 async function addReaction(sock, message, emoji) {
     try {
         await sock.sendMessage(message.key.remoteJid, {
@@ -88,13 +112,19 @@ function safeFileName(value, fallback) {
         .slice(0, 90) || fallback;
 }
 
+// ═══════════════════════════════════════════════════════════
+//                    📥 BUFFER DOWNLOAD
+// ═══════════════════════════════════════════════════════════
 async function downloadMediaBuffer(url) {
     const response = await axios.get(url, {
         responseType: 'arraybuffer',
         timeout: 120000,
-        maxContentLength: MAX_FILE_MB * 1024 * 1024,
-        maxBodyLength: MAX_FILE_MB * 1024 * 1024,
-        headers: { 'User-Agent': 'Mozilla/5.0', Accept: '*/*' }
+        maxContentLength: CONFIG.MAX_FILE_MB * 1024 * 1024,
+        maxBodyLength: CONFIG.MAX_FILE_MB * 1024 * 1024,
+        headers: {
+            'User-Agent': 'Mozilla/5.0',
+            'Accept': '*/*'
+        }
     });
     const contentType = String(response.headers?.['content-type'] || '').toLowerCase();
     if (contentType.includes('json') || contentType.includes('text/html')) {
@@ -102,27 +132,53 @@ async function downloadMediaBuffer(url) {
     }
     const buffer = Buffer.from(response.data);
     if (!buffer.length) throw new Error('The downloaded media is empty.');
-    if (buffer.length > MAX_FILE_MB * 1024 * 1024) {
-        throw new Error(`The file exceeds the ${MAX_FILE_MB} MB sending limit.`);
+    if (buffer.length > CONFIG.MAX_FILE_MB * 1024 * 1024) {
+        throw new Error(`The file exceeds the ${CONFIG.MAX_FILE_MB} MB sending limit.`);
     }
     return buffer;
 }
 
-// ================= HECTOR MANUEL DOWNLOAD API =================
-async function getDownloadLinks(url) {
+// ═══════════════════════════════════════════════════════════
+//                    🌐 API HELPERS
+// ═══════════════════════════════════════════════════════════
+
+// API #1: Ziaul (Audio - Direct Query)
+async function getZiaulAudio(query) {
+    const apiUrl = `https://apiziaul.vercel.app/api/downloader/ytplaymp3?query=${encodeURIComponent(query)}`;
+    const response = await axios.get(apiUrl, {
+        timeout: 60000,
+        maxContentLength: 2 * 1024 * 1024
+    });
+    const result = response.data?.result;
+    if (response.data?.status === true && result?.downloadUrl) {
+        return {
+            downloadUrl: result.downloadUrl,
+            title: result.title || query,
+            duration: result.duration || 'Unknown',
+            quality: result.quality || 'MP3',
+            thumbnail: result.thumbnail || ''
+        };
+    }
+    throw new Error('Ziaul API failed');
+}
+
+// API #2: Hector Manuel (Multi-Quality)
+async function getHectorDownloadLinks(url) {
     const api = `https://yt-dl.officialhectormanuel.workers.dev/?url=${encodeURIComponent(url)}`;
     const response = await axios.get(api, {
-        timeout: API_TIMEOUT,
+        timeout: CONFIG.API_TIMEOUT,
         maxContentLength: 2 * 1024 * 1024,
         headers: { 'User-Agent': 'Mozilla/5.0' }
     });
     if (response?.data?.status !== true) {
-        throw new Error('The YouTube download API did not return a successful result.');
+        throw new Error('Hector API did not return a successful result.');
     }
     return response.data;
 }
 
-// ================= RELIABLE SEND =================
+// ═══════════════════════════════════════════════════════════
+//                    📤 RELIABLE SEND
+// ═══════════════════════════════════════════════════════════
 async function sendMediaSafe(sock, chatId, type, url, opts, quotedMsg) {
     const buffer = await downloadMediaBuffer(url);
     const payload = type === 'audio'
@@ -132,7 +188,155 @@ async function sendMediaSafe(sock, chatId, type, url, opts, quotedMsg) {
     return true;
 }
 
-// ================= MAIN SEARCH COMMAND =================
+// ═══════════════════════════════════════════════════════════
+//        🚀 COMMAND 1: .play / .song / .music (DIRECT)
+// ═══════════════════════════════════════════════════════════
+async function playCommand(sock, chatId, message) {
+    try {
+        await addReaction(sock, message, '🎵');
+
+        const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
+        const searchQuery = text.replace(/^\.(?:play|song|music|sound|mp3|ytmp3)\b/i, '').trim();
+
+        if (!searchQuery) {
+            await addReaction(sock, message, '❌');
+            return await sock.sendMessage(chatId, {
+                text: box('🎵 ᴘʟᴀʏ ᴄᴏᴍᴍᴀɴᴅ', [
+                    '📌 ᴜsᴀɢᴇ : .ᴘʟᴀʏ [sᴏɴɢ ɴᴀᴍᴇ]',
+                    '🔍 ᴇxᴀᴍᴘʟᴇ : .ᴘʟᴀʏ ᴀᴛɪꜰ ᴀsʟᴀᴍ',
+                    '🔍 ᴇxᴀᴍᴘʟᴇ : .ᴘʟᴀʏ ꜰᴀᴅᴇᴅ ᴀʟᴀɴ ᴡᴀʟᴋᴇʀ',
+                    '━━━━━━━━━━━━━━━━━━',
+                    '💡 ᴛɪᴘ : ᴜsᴇ .ʏᴛs ꜰᴏʀ ᴍᴜʟᴛɪᴘʟᴇ ʀᴇsᴜʟᴛs'
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+        }
+
+        // 🔍 Search first (for thumbnail)
+        await addReaction(sock, message, '🔍');
+
+        let video = null;
+        try {
+            const { videos } = await yts(searchQuery);
+            if (videos && videos.length > 0) video = videos[0];
+        } catch (e) {
+            console.error('YouTube search failed:', e);
+        }
+
+        // 🖼️ Send thumbnail FIRST
+        if (video) {
+            try {
+                const previewCaption = box('🎵 sᴏɴɢ ꜰᴏᴜɴᴅ', [
+                    `📌 ᴛɪᴛʟᴇ : ${trim(video.title, 35)}`,
+                    `⏱️ ᴅᴜʀᴀᴛɪᴏɴ : ${video.timestamp || 'Unknown'}`,
+                    `📺 ᴄʜᴀɴɴᴇʟ : ${trim(video.author?.name, 25)}`,
+                    '━━━━━━━━━━━━━━━━━━',
+                    '⏳ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴍᴘ3...'
+                ]);
+
+                await sock.sendMessage(chatId, {
+                    image: { url: video.thumbnail },
+                    caption: previewCaption,
+                    ...channelInfo
+                }, { quoted: message });
+            } catch (e) {
+                console.error('Thumbnail error:', e);
+            }
+        }
+
+        // 📥 Processing
+        await addReaction(sock, message, '📥');
+
+        // 🎵 Try API #1: Ziaul (Primary)
+        let audioData = null;
+        let usedApi = '';
+
+        try {
+            console.log('[PLAY] Trying Ziaul API...');
+            audioData = await getZiaulAudio(searchQuery);
+            usedApi = 'Ziaul';
+            console.log('✅ Ziaul success');
+        } catch (apiError1) {
+            console.log('❌ Ziaul failed:', apiError1.message);
+
+            // Fallback: Hector
+            if (video) {
+                try {
+                    console.log('[PLAY] Trying Hector API...');
+                    const hectorData = await getHectorDownloadLinks(video.url);
+                    if (hectorData.audio) {
+                        audioData = {
+                            downloadUrl: hectorData.audio,
+                            title: hectorData.title || video.title,
+                            duration: video.timestamp || hectorData.duration,
+                            quality: 'MP3',
+                            thumbnail: video.thumbnail
+                        };
+                        usedApi = 'Hector';
+                        console.log('✅ Hector success');
+                    }
+                } catch (apiError2) {
+                    console.log('❌ Hector failed:', apiError2.message);
+                }
+            }
+        }
+
+        if (!audioData) {
+            await addReaction(sock, message, '❌');
+            return await sock.sendMessage(chatId, {
+                text: box('❌ ᴀᴘɪ ꜰᴀɪʟᴇᴅ', [
+                    '🔴 ᴀʟʟ ᴀᴘɪs ᴀʀᴇ ᴅᴏᴡɴ',
+                    '💡 ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ'
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+        }
+
+        const finalTitle = audioData.title || searchQuery;
+
+        // 🚀 Download as buffer
+        let audioBuffer;
+        try {
+            audioBuffer = await downloadMediaBuffer(audioData.downloadUrl);
+        } catch (downloadError) {
+            console.error('Buffer failed, URL fallback:', downloadError.message);
+            await sock.sendMessage(chatId, {
+                audio: { url: audioData.downloadUrl },
+                mimetype: 'audio/mpeg',
+                fileName: `${safeFileName(finalTitle, 'song')}.mp3`,
+                ptt: false,
+                ...channelInfo
+            }, { quoted: message });
+            await addReaction(sock, message, '✅');
+            return;
+        }
+
+        // ✅ Send audio
+        await sock.sendMessage(chatId, {
+            audio: audioBuffer,
+            mimetype: 'audio/mpeg',
+            fileName: `${safeFileName(finalTitle, 'song')}.mp3`,
+            ptt: false,
+            ...channelInfo
+        }, { quoted: message });
+
+        await addReaction(sock, message, '✅');
+
+    } catch (error) {
+        console.error('Play command error:', error);
+        await addReaction(sock, message, '❌');
+        let errorMsg = error.message || 'Download failed';
+        if (errorMsg.length > 80) errorMsg = errorMsg.substring(0, 80) + '...';
+        await sock.sendMessage(chatId, {
+            text: box('❌ ᴇʀʀᴏʀ', [`🔴 ${errorMsg}`, '💡 ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ']),
+            ...channelInfo
+        }, { quoted: message });
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+//        🚀 COMMAND 2: .yts (SEARCH WITH REPLIES)
+// ═══════════════════════════════════════════════════════════
 async function ytsCommand(sock, chatId, message) {
     try {
         await addReaction(sock, message, '🔍');
@@ -143,7 +347,11 @@ async function ytsCommand(sock, chatId, message) {
         if (!searchQuery) {
             await addReaction(sock, message, '❌');
             await sock.sendMessage(chatId, {
-                text: box('🔍 ʏᴛs sᴇᴀʀᴄʜ', ['📌 ᴜsᴀɢᴇ : .ʏᴛs [sᴏɴɢ/ɴᴀᴍᴇ]', '🔍 ᴇxᴀᴍᴘʟᴇ : .ʏᴛs ᴀᴛɪꜰ ᴀsʟᴀᴍ']),
+                text: box('🔍 ʏᴛs sᴇᴀʀᴄʜ', [
+                    '📌 ᴜsᴀɢᴇ : .ʏᴛs [sᴏɴɢ/ɴᴀᴍᴇ]',
+                    '🔍 ᴇxᴀᴍᴘʟᴇ : .ʏᴛs ᴀᴛɪꜰ ᴀsʟᴀᴍ',
+                    '💡 ᴛɪᴘ : ʀᴇᴘʟʏ ᴡɪᴛʜ ɴᴜᴍʙᴇʀ ᴛᴏ ᴅᴏᴡɴʟᴏᴀᴅ'
+                ]),
                 ...channelInfo
             }, { quoted: message });
             return;
@@ -153,15 +361,21 @@ async function ytsCommand(sock, chatId, message) {
         if (!videos || videos.length === 0) {
             await addReaction(sock, message, '❌');
             await sock.sendMessage(chatId, {
-                text: box('❌ ɴᴏ ʀᴇsᴜʟᴛs', [`🔍 ɴᴏ ᴠɪᴅᴇᴏs ꜰᴏᴜɴᴅ ꜰᴏʀ: ${searchQuery}`, '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ ᴋᴇʏᴡᴏʀᴅs']),
+                text: box('❌ ɴᴏ ʀᴇsᴜʟᴛs', [
+                    `🔍 ɴᴏ ᴠɪᴅᴇᴏs ꜰᴏᴜɴᴅ ꜰᴏʀ: ${searchQuery}`,
+                    '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ ᴋᴇʏᴡᴏʀᴅs'
+                ]),
                 ...channelInfo
             }, { quoted: message });
             return;
         }
 
-        const topVideos = videos.slice(0, MAX_RESULTS);
+        const topVideos = videos.slice(0, CONFIG.MAX_RESULTS);
 
-        let resultText = box('🔍 sᴇᴀʀᴄʜ ʀᴇsᴜʟᴛs', [`📊 ǫᴜᴇʀʏ : ${searchQuery}`, `🎬 ꜰᴏᴜɴᴅ : ${topVideos.length} ᴠɪᴅᴇᴏs`]) + '\n\n';
+        let resultText = box('🔍 sᴇᴀʀᴄʜ ʀᴇsᴜʟᴛs', [
+            `📊 ǫᴜᴇʀʏ : ${searchQuery}`,
+            `🎬 ꜰᴏᴜɴᴅ : ${topVideos.length} ᴠɪᴅᴇᴏs`
+        ]) + '\n\n';
 
         topVideos.forEach((v, i) => {
             resultText += `╭┈──〔 🎬 #${i + 1} 〕┈──⊷\n`;
@@ -189,13 +403,18 @@ async function ytsCommand(sock, chatId, message) {
         console.error('YTS command error:', error);
         await addReaction(sock, message, '❌');
         await sock.sendMessage(chatId, {
-            text: box('❌ ᴇʀʀᴏʀ', [`🔴 ${error.message || 'Something went wrong'}`, '💡 ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ']),
+            text: box('❌ ᴇʀʀᴏʀ', [
+                `🔴 ${error.message || 'Something went wrong'}`,
+                '💡 ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ'
+            ]),
             ...channelInfo
         }, { quoted: message });
     }
 }
 
-// ================= HANDLE ALL REPLIES =================
+// ═══════════════════════════════════════════════════════════
+//        📩 HANDLE REPLIES (Format + Quality Selection)
+// ═══════════════════════════════════════════════════════════
 async function processYtsReply(sock, chatId, message) {
     try {
         const text = (message.message?.conversation || message.message?.extendedTextMessage?.text || '').trim();
@@ -204,7 +423,9 @@ async function processYtsReply(sock, chatId, message) {
 
         const sender = message.key.participant || message.key.remoteJid;
 
-        // STEP 3: Reply to the video-quality prompt.
+        // ═══════════════════════════════════════════
+        // STEP 3: Quality Selection Reply
+        // ═══════════════════════════════════════════
         if (pendingQuality.has(quotedMsgId)) {
             const pending = pendingQuality.get(quotedMsgId);
             if (sender !== pending.sender) return false;
@@ -239,7 +460,9 @@ async function processYtsReply(sock, chatId, message) {
             return true;
         }
 
-        // STEP 2: Reply to format prompt.
+        // ═══════════════════════════════════════════
+        // STEP 2: Format Selection Reply
+        // ═══════════════════════════════════════════
         if (pendingFormat.has(quotedMsgId)) {
             const pending = pendingFormat.get(quotedMsgId);
             if (sender !== pending.sender) return false;
@@ -248,7 +471,10 @@ async function processYtsReply(sock, chatId, message) {
             const choice = num === 2 ? 'audio' : num === 1 ? 'video' : null;
             if (!choice) {
                 await sock.sendMessage(chatId, {
-                    text: box('❌ ɪɴᴠᴀʟɪᴅ ᴄʜᴏɪᴄᴇ', ['1️⃣ ʀᴇᴘʟʏ 1 ꜰᴏʀ ᴠɪᴅᴇᴏ', '2️⃣ ʀᴇᴘʟʏ 2 ꜰᴏʀ ᴀᴜᴅɪᴏ']),
+                    text: box('❌ ɪɴᴠᴀʟɪᴅ ᴄʜᴏɪᴄᴇ', [
+                        '1️⃣ ʀᴇᴘʟʏ 1 ꜰᴏʀ ᴠɪᴅᴇᴏ',
+                        '2️⃣ ʀᴇᴘʟʏ 2 ꜰᴏʀ ᴀᴜᴅɪᴏ'
+                    ]),
                     ...channelInfo
                 }, { quoted: message });
                 return true;
@@ -266,21 +492,36 @@ async function processYtsReply(sock, chatId, message) {
             processing.add(sender);
             try {
                 if (choice === 'audio') {
-                    const data = await getDownloadLinks(pending.video.url);
+                    // ✅ Try Ziaul first
+                    let data = null;
+                    try {
+                        const ziaulData = await getZiaulAudio(pending.video.title || pending.video.url);
+                        if (ziaulData?.downloadUrl) {
+                            data = { audio: ziaulData.downloadUrl, title: ziaulData.title };
+                        }
+                    } catch (e) {
+                        console.log('Ziaul failed for reply, trying Hector...');
+                    }
+
+                    // Fallback: Hector
+                    if (!data?.audio) {
+                        data = await getHectorDownloadLinks(pending.video.url);
+                    }
+
                     if (!data.audio) throw new Error('No MP3 download link was returned.');
                     await downloadAndSend(sock, chatId, message, pending.video, 'audio', null, data);
                 } else {
-                    const data = await getDownloadLinks(pending.video.url);
+                    const data = await getHectorDownloadLinks(pending.video.url);
                     const qualities = (data.available_qualities || Object.keys(data.videos || {}))
                         .map(String)
                         .filter(item => item !== 'mp3' && data.videos?.[item]);
-                    if (!qualities.length) throw new Error('No video qualities are available for this result.');
+                    if (!qualities.length) throw new Error('No video qualities are available.');
 
                     const qualityPrompt = await sock.sendMessage(chatId, {
-                        text: box('🎬 ᴄʜᴏᴏsᴇ ᴠɪᴅᴇᴏ ǫᴜᴀʟɪᴛʏ', [
+                        text: box('🎬 ᴄʜᴏᴏsᴇ ǫᴜᴀʟɪᴛʏ', [
                             `📌 ${trim(data.title || pending.video.title, 42)}`,
                             `📺 ᴀᴠᴀɪʟᴀʙʟᴇ : ${qualities.join(', ')}`,
-                            '💡 ʀᴇᴘʟʏ ᴡɪᴛʜ ǫᴜᴀʟɪᴛʏ ɴᴜᴍʙᴇʀ (ᴇxᴀᴍᴘʟᴇ: 720)'
+                            '💡 ʀᴇᴘʟʏ ᴡɪᴛʜ ǫᴜᴀʟɪᴛʏ (ᴇx: 720)'
                         ]),
                         ...channelInfo
                     }, { quoted: message });
@@ -310,7 +551,9 @@ async function processYtsReply(sock, chatId, message) {
             return true;
         }
 
-        // STEP 1: Reply to search results
+        // ═══════════════════════════════════════════
+        // STEP 1: Number Reply to Search Results
+        // ═══════════════════════════════════════════
         if (activeSearches.has(quotedMsgId)) {
             const num = parseStrictInt(text);
             if (num === null || num < 1) return false;
@@ -318,7 +561,10 @@ async function processYtsReply(sock, chatId, message) {
             const searchData = activeSearches.get(quotedMsgId);
             if (sender !== searchData.sender) {
                 await sock.sendMessage(chatId, {
-                    text: box('⛔ ɴᴏᴛ ʏᴏᴜʀ sᴇᴀʀᴄʜ', ['🔍 ᴛʜɪs sᴇᴀʀᴄʜ ᴡᴀs ʀᴇǫᴜᴇsᴛᴇᴅ ʙʏ sᴏᴍᴇᴏɴᴇ ᴇʟsᴇ', '💡 ᴘʟᴇᴀsᴇ ᴜsᴇ .ʏᴛs ʏᴏᴜʀsᴇʟꜰ']),
+                    text: box('⛔ ɴᴏᴛ ʏᴏᴜʀ sᴇᴀʀᴄʜ', [
+                        '🔍 ᴛʜɪs sᴇᴀʀᴄʜ ᴡᴀs ʀᴇǫᴜᴇsᴛᴇᴅ ʙʏ sᴏᴍᴇᴏɴᴇ ᴇʟsᴇ',
+                        '💡 ᴘʟᴇᴀsᴇ ᴜsᴇ .ʏᴛs ʏᴏᴜʀsᴇʟꜰ'
+                    ]),
                     ...channelInfo
                 }, { quoted: message });
                 return true;
@@ -326,7 +572,10 @@ async function processYtsReply(sock, chatId, message) {
 
             if (num > searchData.videos.length) {
                 await sock.sendMessage(chatId, {
-                    text: box('❌ ɪɴᴠᴀʟɪᴅ ɴᴜᴍʙᴇʀ', [`📊 ᴏɴʟʏ ${searchData.videos.length} ᴠɪᴅᴇᴏs ᴀᴠᴀɪʟᴀʙʟᴇ`, `💡 ʀᴇᴘʟʏ ᴡɪᴛʜ 1 ᴛᴏ ${searchData.videos.length}`]),
+                    text: box('❌ ɪɴᴠᴀʟɪᴅ ɴᴜᴍʙᴇʀ', [
+                        `📊 ᴏɴʟʏ ${searchData.videos.length} ᴠɪᴅᴇᴏs ᴀᴠᴀɪʟᴀʙʟᴇ`,
+                        `💡 ʀᴇᴘʟʏ ᴡɪᴛʜ 1 ᴛᴏ ${searchData.videos.length}`
+                    ]),
                     ...channelInfo
                 }, { quoted: message });
                 return true;
@@ -370,16 +619,23 @@ async function processYtsReply(sock, chatId, message) {
     }
 }
 
-// ================= DOWNLOAD + SEND =================
+// ═══════════════════════════════════════════════════════════
+//        📥 DOWNLOAD + SEND (Common Function)
+// ═══════════════════════════════════════════════════════════
 async function downloadAndSend(sock, chatId, message, video, type, quality, apiData) {
     const videoUrl = video.url;
-    const data = apiData || await getDownloadLinks(videoUrl);
+    const data = apiData || await getHectorDownloadLinks(videoUrl);
     const mediaUrl = type === 'audio' ? data.audio : data.videos?.[quality];
-    if (!mediaUrl) throw new Error(type === 'audio'
-        ? 'The MP3 download link is missing.'
-        : `The ${quality}p video link is missing.`);
+
+    if (!mediaUrl) {
+        throw new Error(type === 'audio'
+            ? 'The MP3 download link is missing.'
+            : `The ${quality}p video link is missing.`);
+    }
+
     const videoTitle = data.title || video.title || (type === 'audio' ? 'Audio' : 'Video');
 
+    // 📥 Sending preview
     await addReaction(sock, message, '📥');
     await sock.sendMessage(chatId, {
         text: box('📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ', [
@@ -390,13 +646,14 @@ async function downloadAndSend(sock, chatId, message, video, type, quality, apiD
         ...channelInfo
     }, { quoted: message });
 
+    // 📏 Size check
     const sizeMB = await getRemoteFileSizeMB(mediaUrl);
-    if (sizeMB && parseFloat(sizeMB) > MAX_FILE_MB) {
+    if (sizeMB && parseFloat(sizeMB) > CONFIG.MAX_FILE_MB) {
         await addReaction(sock, message, '⚠️');
         await sock.sendMessage(chatId, {
             text: box('⚠️ ꜰɪʟᴇ ᴛᴏᴏ ʟᴀʀɢᴇ', [
                 `📏 sɪᴢᴇ  : ${sizeMB} MB`,
-                `⚠️ ʟɪᴍɪᴛ : ${MAX_FILE_MB} MB`,
+                `⚠️ ʟɪᴍɪᴛ : ${CONFIG.MAX_FILE_MB} MB`,
                 '💡 ᴛʀʏ sʜᴏʀᴛᴇʀ ᴠɪᴅᴇᴏ ᴏʀ ᴀᴜᴅɪᴏ'
             ]),
             ...channelInfo
@@ -417,7 +674,10 @@ async function downloadAndSend(sock, chatId, message, video, type, quality, apiD
     if (!ok) {
         await addReaction(sock, message, '❌');
         await sock.sendMessage(chatId, {
-            text: box('❌ sᴇɴᴅ ꜰᴀɪʟᴇᴅ', ['🔴 ᴅᴏᴡɴʟᴏᴀᴅ ʟɪɴᴋ ᴇxᴘɪʀᴇᴅ', '💡 ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ']),
+            text: box('❌ sᴇɴᴅ ꜰᴀɪʟᴇᴅ', [
+                '🔴 ᴅᴏᴡɴʟᴏᴀᴅ ʟɪɴᴋ ᴇxᴘɪʀᴇᴅ',
+                '💡 ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ'
+            ]),
             ...channelInfo
         }, { quoted: message });
         return;
@@ -426,7 +686,11 @@ async function downloadAndSend(sock, chatId, message, video, type, quality, apiD
     await addReaction(sock, message, '✅');
 }
 
+// ═══════════════════════════════════════════════════════════
+//                    📤 EXPORTS
+// ═══════════════════════════════════════════════════════════
 module.exports = {
+    playCommand,
     ytsCommand,
     processYtsReply
 };
