@@ -355,9 +355,6 @@ async function handleSelfChatMessage(sock, chatId, message, userMessage, senderI
         return true;
     } catch (error) {
         console.error('❌ Selfchat API error:', error?.message || error);
-        if (!process.env.LLAMA_API_KEY) {
-            console.error('Set LLAMA_API_KEY to enable selfchat.');
-        }
         return false;
     }
 }

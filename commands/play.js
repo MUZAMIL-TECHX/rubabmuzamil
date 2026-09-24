@@ -1,4 +1,3 @@
-const yts = require('yt-search');
 const axios = require('axios');
 
 // ===============================
@@ -34,13 +33,38 @@ function box(title, lines = []) {
     return out;
 }
 
+function cleanFileName(value) {
+    return String(value || 'song')
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 80) || 'song';
+}
+
+async function downloadAudio(url) {
+    const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 120000,
+        maxContentLength: 100 * 1024 * 1024,
+        maxBodyLength: 100 * 1024 * 1024,
+        headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'audio/*,*/*;q=0.8' }
+    });
+    const contentType = String(response.headers?.['content-type'] || '').toLowerCase();
+    if (contentType.includes('json') || contentType.includes('text/html')) {
+        throw new Error('The audio provider returned an error instead of an MP3.');
+    }
+    const buffer = Buffer.from(response.data);
+    if (!buffer.length) throw new Error('The downloaded MP3 is empty.');
+    return buffer;
+}
+
 async function playCommand(sock, chatId, message) {
     try {
         // 🎵 Start reaction
         await addReaction(sock, message, '🎵');
 
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
-        const searchQuery = text.split(' ').slice(1).join(' ').trim();
+        const searchQuery = text.replace(/^\.(?:play|music)\b/i, '').trim();
 
         if (!searchQuery) {
             await addReaction(sock, message, '❌');
@@ -54,35 +78,36 @@ async function playCommand(sock, chatId, message) {
             }, { quoted: message });
         }
 
-        // 🔍 Search reaction
+        // 🔍 Search and prepare audio using the requested play API.
         await addReaction(sock, message, '🔍');
 
-        const { videos } = await yts(searchQuery);
-        if (!videos || videos.length === 0) {
+        const apiUrl = `https://apiziaul.vercel.app/api/downloader/ytplaymp3?query=${encodeURIComponent(searchQuery)}`;
+        const response = await axios.get(apiUrl, { timeout: 90000, maxContentLength: 2 * 1024 * 1024 });
+        const result = response.data?.result;
+        if (response.data?.status !== true || !result?.downloadUrl) {
             await addReaction(sock, message, '❌');
             return await sock.sendMessage(chatId, {
-                text: box('❌ ɴᴏ sᴏɴɢs ꜰᴏᴜɴᴅ', [
-                    `🔍 ɴᴏ ʀᴇsᴜʟᴛs ꜰᴏʀ : ${searchQuery}`,
-                    '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ ᴋᴇʏᴡᴏʀᴅs'
+                text: box('❌ sᴏɴɢ ɴᴏᴛ ᴀᴠᴀɪʟᴀʙʟᴇ', [
+                    `🔍 ɴᴏ ᴅᴏᴡɴʟᴏᴀᴅ ʀᴇsᴜʟᴛ ꜰᴏʀ : ${searchQuery}`,
+                    '💡 ᴛʀʏ ᴀɢᴀɪɴ ᴡɪᴛʜ ᴀ ᴅɪꜰꜰᴇʀᴇɴᴛ sᴏɴɢ ɴᴀᴍᴇ'
                 ]),
                 ...channelInfo
             }, { quoted: message });
         }
 
-        const video = videos[0];
-        const urlYt = video.url;
-
         // Send preview
         try {
+            const previewCaption = box('🎵 sᴏɴɢ ꜰᴏᴜɴᴅ', [
+                `📌 ᴛɪᴛʟᴇ : ${(result.title || searchQuery).substring(0, 38)}${(result.title || searchQuery).length > 38 ? '...' : ''}`,
+                `⏱️ ᴅᴜʀᴀᴛɪᴏɴ : ${result.duration || 'Unknown'}`,
+                `🎚️ ǫᴜᴀʟɪᴛʏ : ${result.quality || 'MP3'}`,
+                '━━━━━━━━━━━━━━━━━━',
+                '⏳ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴍᴘ3...'
+            ]);
             await sock.sendMessage(chatId, {
-                image: { url: video.thumbnail },
-                caption: box('🎵 sᴏɴɢ ꜰᴏᴜɴᴅ', [
-                    `📌 ᴛɪᴛʟᴇ : ${(video.title || '').substring(0, 38)}${(video.title || '').length > 38 ? '...' : ''}`,
-                    `⏱️ ᴅᴜʀᴀᴛɪᴏɴ : ${video.timestamp || 'Unknown'}`,
-                    `📺 ᴄʜᴀɴɴᴇʟ : ${(video.author?.name || 'Unknown').substring(0, 25)}`,
-                    '━━━━━━━━━━━━━━━━━━',
-                    '⏳ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴀᴜᴅɪᴏ...'
-                ]),
+                ...(result.thumbnail
+                    ? { image: { url: result.thumbnail }, caption: previewCaption }
+                    : { text: previewCaption }),
                 ...channelInfo
             }, { quoted: message });
         } catch (e) {
@@ -92,31 +117,14 @@ async function playCommand(sock, chatId, message) {
         // 📥 Download reaction
         await addReaction(sock, message, '📥');
 
-        // Fetch audio
-        const response = await axios.get(`https://apis-keith.vercel.app/download/dlmp3?url=${urlYt}`, {
-            timeout: 60000
-        });
-        const data = response.data;
-
-        if (!data || !data.status || !data.result || !data.result.downloadUrl) {
-            await addReaction(sock, message, '❌');
-            return await sock.sendMessage(chatId, {
-                text: box('❌ ᴀᴘɪ ꜰᴀɪʟᴇᴅ', [
-                    '🔴 ꜰᴀɪʟᴇᴅ ᴛᴏ ꜰᴇᴛᴄʜ ᴀᴜᴅɪᴏ',
-                    '💡 ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ'
-                ]),
-                ...channelInfo
-            }, { quoted: message });
-        }
-
-        const audioUrl = data.result.downloadUrl;
-        const title = data.result.title || video.title || 'Song';
+        const audioBuffer = await downloadAudio(result.downloadUrl);
+        const title = result.title || searchQuery || 'Song';
 
         // ✅ Send audio
         await sock.sendMessage(chatId, {
-            audio: { url: audioUrl },
+            audio: audioBuffer,
             mimetype: 'audio/mpeg',
-            fileName: `${title}.mp3`,
+            fileName: `${cleanFileName(title)}.mp3`,
             ptt: false,
             ...channelInfo
         }, { quoted: message });

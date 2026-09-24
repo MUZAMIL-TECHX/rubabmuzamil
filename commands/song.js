@@ -1,7 +1,5 @@
 const axios = require('axios');
 const yts = require('yt-search');
-const { toAudio } = require('../lib/converter');
-const { downloadAudioFromYts } = require('./yts');
 
 const activeDownloads = new Set();
 const channelInfo = {
@@ -34,15 +32,6 @@ function cleanFileName(value) {
         .slice(0, 80) || 'song';
 }
 
-function detectExtension(buffer) {
-    if (buffer.toString('ascii', 0, 3) === 'ID3' ||
-        (buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0)) return 'mp3';
-    if (buffer.toString('ascii', 0, 4) === 'OggS') return 'ogg';
-    if (buffer.toString('ascii', 0, 4) === 'RIFF') return 'wav';
-    if (buffer.slice(4, 8).toString('ascii') === 'ftyp') return 'm4a';
-    return 'm4a';
-}
-
 async function downloadBuffer(url) {
     const response = await axios.get(url, {
         responseType: 'arraybuffer',
@@ -54,6 +43,10 @@ async function downloadBuffer(url) {
             'Accept': '*/*'
         }
     });
+    const contentType = String(response.headers?.['content-type'] || '').toLowerCase();
+    if (contentType.includes('json') || contentType.includes('text/html')) {
+        throw new Error('The song provider returned an error instead of an MP3.');
+    }
     const buffer = Buffer.from(response.data);
     if (!buffer.length) throw new Error('Downloaded audio is empty');
     return buffer;
@@ -78,14 +71,14 @@ async function songCommand(sock, chatId, message) {
 
     const rawText = message.message?.conversation ||
         message.message?.extendedTextMessage?.text || '';
-    const query = rawText.replace(/^\.?(?:song|play)\b/i, '').trim();
+    const query = rawText.replace(/^\.?(?:song|mp3|ytmp3)\b/i, '').trim();
 
     if (!query) {
         await sock.sendMessage(chatId, {
             text: `╭━━━〔 🎵 *SONG DOWNLOADER* 〕━━━┈⊷
 ┃ ❍ Usage : .song [name/link]
 ┃ ❍ Example: .song Atif Aslam
-┃ ❍ Alias  : .play [name/link]
+┃ ❍ Fast MP3 : .play [song name]
 ╰━━━━━━━━━━━━━━━━┈⊷
 
 > 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`,
@@ -114,36 +107,39 @@ async function songCommand(sock, chatId, message) {
 
         // Thumbnail is sent before the API download so the user can see
         // exactly which result is being processed.
-        await sock.sendMessage(chatId, {
-            image: { url: video.thumbnail },
-            caption: `╭━━━〔 🎵 *SONG FOUND* 〕━━━┈⊷
+        const previewCaption = `╭━━━〔 🎵 *SONG FOUND* 〕━━━┈⊷
 ┃ ❍ Title    : ${String(video.title || 'Unknown').slice(0, 55)}
 ┃ ❍ Duration : ${video.timestamp || 'Unknown'}
 ┃ ❍ Status   : Downloading... ⏳
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`,
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
+        await sock.sendMessage(chatId, {
+            ...(video.thumbnail
+                ? { image: { url: video.thumbnail }, caption: previewCaption }
+                : { text: previewCaption }),
             ...channelInfo
         }, { quoted: message });
 
-        // Keep the download providers in yts.js as the single source of
-        // truth. This uses its Arslan/Yupra MP3 fallback chain.
-        const audioData = await downloadAudioFromYts(video.url);
-        if (!audioData?.download) throw new Error('All audio sources failed');
+        // Search with yt-search, then ask the requested provider for its MP3
+        // stream using the selected YouTube URL.
+        const downloadApi = `https://yt-dl.officialhectormanuel.workers.dev/?url=${encodeURIComponent(video.url)}`;
+        const { data } = await axios.get(downloadApi, {
+            timeout: 90000,
+            maxContentLength: 2 * 1024 * 1024
+        });
+        if (data?.status !== true || !data?.audio) {
+            throw new Error('The song API did not return an MP3 download link.');
+        }
 
-        const audioBuffer = await downloadBuffer(audioData.download);
-        const inputExtension = detectExtension(audioBuffer);
-        const finalBuffer = inputExtension === 'mp3'
-            ? audioBuffer
-            : await toAudio(audioBuffer, inputExtension);
-
+        const audioBuffer = await downloadBuffer(data.audio);
         await sock.sendMessage(chatId, {
-            audio: finalBuffer,
+            audio: audioBuffer,
             mimetype: 'audio/mpeg',
-            fileName: `${cleanFileName(audioData.title || video.title)}.mp3`,
+            fileName: `${cleanFileName(data.title || video.title)}.mp3`,
             ptt: false,
             caption: `╭━━━〔 ✅ *SONG READY* 〕━━━┈⊷
-┃ ❍ Title  : ${String(audioData.title || video.title || 'Song').slice(0, 55)}
+┃ ❍ Title  : ${String(data.title || video.title || 'Song').slice(0, 55)}
 ┃ ❍ Status : Downloaded ✅
 ╰━━━━━━━━━━━━━━━━┈⊷
 
