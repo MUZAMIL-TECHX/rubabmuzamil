@@ -95,9 +95,13 @@ const useMobile = process.argv.includes("--mobile")
 // request reuse the first account and return "Session already found".
 const sockets = new Map()
 const pairingLocks = new Map()
-let reconnectTimer = null
+const reconnectTimers = new Map()
 let pairingServer = null
 let baileysVersionPromise = null
+
+if (process.env.RAILWAY_ENVIRONMENT && !process.env.SESSION_DIR) {
+    console.warn('⚠️ SESSION_DIR is not set on Railway. Attach a persistent volume and set SESSION_DIR=/app/session so WhatsApp logins survive redeploys.')
+}
 
 function sessionKey(value = 'default') {
     const clean = String(value || 'default').replace(/[^a-zA-Z0-9_-]/g, '')
@@ -112,6 +116,20 @@ function sessionPath(key = 'default') {
 
 function getSocket(key = 'default') {
     return sockets.get(sessionKey(key)) || null
+}
+
+function scheduleReconnect(key, delayMs = 5000, requestedPhoneNumber = '') {
+    const normalizedKey = sessionKey(key)
+    if (reconnectTimers.has(normalizedKey)) return
+    const timer = setTimeout(() => {
+        reconnectTimers.delete(normalizedKey)
+        if (getSocket(normalizedKey)) return
+        startXeonBotInc(requestedPhoneNumber, normalizedKey).catch(error => {
+            console.error(`Reconnect attempt failed for session ${normalizedKey}:`, error)
+        })
+    }, delayMs)
+    timer.unref?.()
+    reconnectTimers.set(normalizedKey, timer)
 }
 
 function hasCredentials(dir) {
@@ -402,12 +420,7 @@ async function startXeonBotInc(requestedPhoneNumber = '', requestedSessionKey = 
             
             if (shouldReconnect) {
                 console.log(chalk.yellow('Reconnecting...'))
-                setTimeout(() => {
-                        if (getSocket(key)) return
-                        startXeonBotInc('', key).catch((error) => {
-                            console.error('Reconnect attempt failed:', error)
-                        })
-                    }, 5000)
+                scheduleReconnect(key, 5000)
             }
         }
     })
@@ -473,12 +486,7 @@ async function startXeonBotInc(requestedPhoneNumber = '', requestedSessionKey = 
     } catch (error) {
         console.error('Error in startXeonBotInc:', error)
         if (!getSocket(key)) {
-            reconnectTimer = setTimeout(() => {
-                reconnectTimer = null
-                startXeonBotInc(requestedPhoneNumber, key).catch((retryError) => {
-                    console.error('Retry attempt failed:', retryError)
-                })
-            }, 5000)
+            scheduleReconnect(key, 5000, requestedPhoneNumber)
         }
         return null
     }
@@ -591,7 +599,8 @@ process.on('unhandledRejection', (err) => {
 
 async function shutdown(signal) {
     console.log(`${signal} received; shutting down cleanly`)
-    if (reconnectTimer) clearTimeout(reconnectTimer)
+    for (const timer of reconnectTimers.values()) clearTimeout(timer)
+    reconnectTimers.clear()
     if (pairingServer) pairingServer.close()
     try {
         await Promise.all([...sockets.values()].map(socket => socket.ws?.close()))
