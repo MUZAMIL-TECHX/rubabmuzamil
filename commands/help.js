@@ -4,7 +4,7 @@ const { getSessionSettings } = require('../lib/session_data');
 // ===============================
 // 🎯 BOT DP URL
 // ===============================
-const BOT_DP_URL = 'https://n.uguu.se/ujpdfzjH.jpg';
+const BOT_DP_URL = 'https://files.catbox.moe/awxsb1.png';
 
 // ===============================
 // 🎯 CHANNEL INFO
