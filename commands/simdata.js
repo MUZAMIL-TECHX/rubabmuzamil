@@ -1,233 +1,191 @@
 const axios = require('axios');
 
-async function simdataCommand(sock, chatId, message, input) {
-    // Check if input is provided
-    if (!input) {
-        await sock.sendMessage(
-            chatId,
-            {
-                text: '📱 *SIM Data Lookup*\n\n' +
-                      'Usage:\n' +
-                      '.simdata 31XXXXXXXXX\n' +
-                      '.simdata 4120XXXXXXXXX\n\n' +
-                      'Example:\n' +
-                      '.simdata 3101234567\n' +
-                      '.simdata 4120112345678\n\n' +
-                      '⚠️ Enter mobile number OR CNIC number'
-            },
-            { quoted: message }
-        );
-        return;
+// ===============================
+// 🎯 CHANNEL INFO
+// ===============================
+const channelInfo = {
+    contextInfo: {
+        forwardingScore: 1,
+        isForwarded: true,
+        forwardedNewsletterMessageInfo: {
+            newsletterJid: '120363426106687970@newsletter',
+            newsletterName: '𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋',
+            serverMessageId: -1
+        }
     }
+};
 
-    // Clean the input - remove spaces, dashes, plus signs
-    const cleanInput = input.replace(/[\s\-+]/g, '');
-    
-    // Validate input (mobile: 10-12 digits, CNIC: 13 digits)
-    if (!/^\d{10,13}$/.test(cleanInput)) {
-        await sock.sendMessage(
-            chatId,
-            {
-                text: '❌ Invalid format!\n\n' +
-                      'Please use:\n' +
-                      '.simdata 31XXXXXXXXX (Mobile)\n' +
-                      '.simdata 4120XXXXXXXXX (CNIC)\n\n' +
-                      'Example:\n' +
-                      '.simdata 3101234567\n' +
-                      '.simdata 4120112345678'
-            },
-            { quoted: message }
-        );
-        return;
-    }
-
+// Helper function to add reaction
+async function addReaction(sock, message, emoji) {
     try {
-        // Show typing indicator
+        await sock.sendMessage(message.key.remoteJid, {
+            react: {
+                text: emoji,
+                key: message.key
+            }
+        });
+    } catch (error) {
+        console.error('Reaction error:', error);
+    }
+}
+
+function box(title, lines = []) {
+    let out = `╭┈──〔 ${title} 〕┈──⊷\n`;
+    for (const l of lines) out += `┋⋄ ➠ ${l}\n`;
+    out += `╰─────────────────────⊷\n\n      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
+    return out;
+}
+
+async function simdataCommand(sock, chatId, message, input) {
+    try {
+        // 🔍 Start reaction
+        await addReaction(sock, message, '📊');
+
+        if (!input) {
+            await addReaction(sock, message, '❌');
+            await sock.sendMessage(chatId, {
+                text: box('📊 sɪᴍ ᴅᴀᴛᴀ ʟᴏᴏᴋᴜᴘ', [
+                    '📌 ᴜsᴀɢᴇ : .sɪᴍᴅᴀᴛᴀ [ɴᴜᴍʙᴇʀ]',
+                    '🔍 ᴇxᴀᴍᴘʟᴇ 1 : .sɪᴍᴅᴀᴛᴀ 3101234567',
+                    '🔍 ᴇxᴀᴍᴘʟᴇ 2 : .sɪᴍᴅᴀᴛᴀ 4120112345678',
+                    '⚠️ ᴇɴᴛᴇʀ ᴍᴏʙɪʟᴇ ᴏʀ ᴄɴɪᴄ'
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+            return;
+        }
+
+        // Clean input
+        const cleanInput = input.replace(/[\s\-+]/g, '');
+
+        if (!/^\d{10,13}$/.test(cleanInput)) {
+            await addReaction(sock, message, '❌');
+            await sock.sendMessage(chatId, {
+                text: box('❌ ɪɴᴠᴀʟɪᴅ ꜰᴏʀᴍᴀᴛ', [
+                    '📌 ᴍᴏʙɪʟᴇ : .sɪᴍᴅᴀᴛᴀ 3101234567',
+                    '📌 ᴄɴɪᴄ   : .sɪᴍᴅᴀᴛᴀ 4120112345678',
+                    '⚠️ 10-13 ᴅɪɢɪᴛs ᴏɴʟʏ'
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+            return;
+        }
+
+        // 🔄 Processing reaction
+        await addReaction(sock, message, '🔄');
         await sock.sendPresenceUpdate('composing', chatId);
-        
-        // Call the SIM Data API with proper headers
-        const apiUrl = `https://wasifali.biz.id/public_apis/sim-info-api.php?search=${cleanInput}`;
-        
-        console.log(`[SIM DATA] Requesting: ${apiUrl}`); // Debug log
-        
+
+        // ✅ NEW API from HTML
+        const apiUrl = `https://sim-db-api.faizankhichi.me/?search=${cleanInput}`;
+        console.log(`[SIM DATA] Requesting: ${apiUrl}`);
+
         const response = await axios.get(apiUrl, {
             timeout: 30000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'application/json',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Connection': 'keep-alive'
+                'Accept': 'application/json'
             }
         });
 
-        console.log(`[SIM DATA] Response Status: ${response.status}`); // Debug log
-        console.log(`[SIM DATA] Response Data:`, JSON.stringify(response.data, null, 2)); // Debug log
-
         const data = response.data;
 
-        // Check if API returned success
-        if (!data || !data.success) {
-            // Try to check if data exists even if success flag is missing
-            if (data && data.records && data.records.length > 0) {
-                // Success flag missing but records exist - proceed
-            } else {
-                throw new Error(data?.message || 'No data found from API');
-            }
+        // ✅ Check API response (HTML format: { data: [...] })
+        if (!data || !data.data || !Array.isArray(data.data) || data.data.length === 0) {
+            await addReaction(sock, message, '❌');
+            await sock.sendMessage(chatId, {
+                text: box('❌ ɴᴏ ᴅᴀᴛᴀ ꜰᴏᴜɴᴅ', [
+                    `📭 ɴᴏ ʀᴇᴄᴏʀᴅs ꜰᴏʀ : ${cleanInput}`,
+                    '💡 ᴄʜᴇᴄᴋ ɴᴜᴍʙᴇʀ/ᴄɴɪᴄ ᴀɴᴅ ᴛʀʏ ᴀɢᴀɪɴ'
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+            return;
         }
 
-        // Check if records exist
-        if (!data.records || data.records.length === 0) {
-            throw new Error('No SIM data found for this number/CNIC');
-        }
+        const records = data.data;
+        const totalCount = records.length;
 
-        // Get all records
-        const records = data.records;
-        const totalCount = data.count || records.length;
+        // Build stylish response
+        let reply = `╭┈──〔 📊 sɪᴍ ᴅᴀᴛᴀ ʀᴇsᴜʟᴛ 〕┈──⊷\n`;
+        reply += `┋⋄ ➠ 📱 ǫᴜᴇʀʏ : ${cleanInput}\n`;
+        reply += `┋⋄ ➠ 📊 ᴛᴏᴛᴀʟ : ${totalCount}\n`;
+        reply += `╰─────────────────────⊷\n\n`;
 
-        // Build response with boxes
-        let reply = '';
-        
-        // Header
-        reply += '❖━━━━━━━━━━━━━━━━━━━❖\n';
-        reply += '╔═══❖•ೋ° 📱 °ೋ•❖═══╗\n';
-        reply += '   𝗦𝗜𝗠 𝗗𝗮𝘁𝗮 𝗟𝗼𝗼𝗸𝘂𝗽\n';
-        reply += `   📊 𝗧𝗼𝘁𝗮𝗹: ${totalCount}\n`;
-        reply += '╚═══❖•ೋ° 📱 °ೋ•❖═══╝\n';
-        reply += '❖━━━━━━━━━━━━━━━━━━━❖\n\n';
-
-        // Loop through each record and create a box
         records.forEach((record, index) => {
-            const name = record.name || 'Unknown';
-            const mobile = record.mobile || 'N/A';
-            const cnic = record.cnic || 'N/A';
-            const address = record.address || 'N/A';
-            const network = record.network || 'Unknown';
+            const name = record.nam || 'Unknown';
+            const mobile = record.nbr || 'N/A';
+            const cnic = record.cni || 'N/A';
+            const address = record.adr || 'N/A';
 
-            // Format CNIC with dashes
+            // Format CNIC
             const formattedCnic = cnic !== 'N/A' && cnic !== 'NO' && cnic.length === 13 
                 ? cnic.replace(/(\d{5})(\d{7})(\d{1})/, '$1-$2-$3')
                 : cnic;
 
-            // Format mobile with dashes
+            // Format mobile
             const formattedMobile = mobile !== 'N/A' && mobile.length === 11
                 ? mobile.replace(/(\d{4})(\d{4})(\d{3})/, '$1-$2-$3')
                 : mobile;
 
-            // Box for each record
-            if (index > 0) {
-                reply += '❖━━━━━━━━━━━━━━━━━━━❖\n\n';
-            }
-
-            reply += '┌─────────────────────┐\n';
-            reply += `│ 📌 𝗥𝗲𝗰𝗼𝗿𝗱 #${index + 1}\n`;
-            reply += '├─────────────────────┤\n';
-            
-            // Name
+            // Name check
             const isNotFound = name === 'NOT FOUND' || 
                               name === 'DATA NOT RECIEVED FROM NADRA' || 
-                              name === 'NO DATA';
+                              name === 'NO DATA' ||
+                              name === 'Unknown';
+
+            reply += `╭┈──〔 👤 ʀᴇᴄᴏʀᴅ #${index + 1} 〕┈──⊷\n`;
             
-            if (!isNotFound && name !== 'Unknown' && name !== 'N/A') {
-                reply += `│ 👤 𝗡𝗮𝗺𝗲    : ${name}\n`;
+            if (!isNotFound) {
+                reply += `┋⋄ ➠ 👤 ɴᴀᴍᴇ    : ${name}\n`;
             } else {
-                reply += `│ 👤 𝗡𝗮𝗺𝗲    : ❌ Not Found\n`;
+                reply += `┋⋄ ➠ 👤 ɴᴀᴍᴇ    : ❌ ɴᴏᴛ ꜰᴏᴜɴᴅ\n`;
             }
             
-            // Mobile
-            reply += `│ 📞 𝗠𝗼𝗯𝗶𝗹𝗲  : ${formattedMobile}\n`;
+            reply += `┋⋄ ➠ 📞 ᴍᴏʙɪʟᴇ  : ${formattedMobile}\n`;
             
-            // CNIC
             if (cnic !== 'N/A' && cnic !== 'NO' && cnic !== 'NO DATA' && cnic !== '') {
-                reply += `│ 🆔 𝗖𝗡𝗜𝗖    : ${formattedCnic}\n`;
+                reply += `┋⋄ ➠ 🆔 ᴄɴɪᴄ    : ${formattedCnic}\n`;
             } else {
-                reply += `│ 🆔 𝗖𝗡𝗜𝗖    : ❌ N/A\n`;
+                reply += `┋⋄ ➠ 🆔 ᴄɴɪᴄ    : ❌ ɴ/ᴀ\n`;
             }
             
-            // Address
             if (address !== 'N/A' && address !== 'NO' && address !== 'NO DATA' && address !== '' && address !== 'NO ADDRESS') {
-                // Truncate address if too long
-                const shortAddress = address.length > 30 ? address.substring(0, 28) + '..' : address;
-                reply += `│ 📍 𝗔𝗱𝗱𝗿𝗲𝘀𝘀 : ${shortAddress}\n`;
+                const shortAddress = address.length > 40 ? address.substring(0, 37) + '...' : address;
+                reply += `┋⋄ ➠ 📍 ᴀᴅᴅʀᴇss : ${shortAddress}\n`;
             } else {
-                reply += `│ 📍 𝗔𝗱𝗱𝗿𝗲𝘀𝘀 : ❌ N/A\n`;
+                reply += `┋⋄ ➠ 📍 ᴀᴅᴅʀᴇss : ❌ ɴ/ᴀ\n`;
             }
             
-            // Network
-            if (network !== 'Unknown' && network !== 'N/A' && network !== '') {
-                // Network emoji mapping
-                let networkEmoji = '📶';
-                const netLower = network.toLowerCase();
-                if (netLower.includes('jazz')) networkEmoji = '🟠';
-                else if (netLower.includes('zong')) networkEmoji = '🔴';
-                else if (netLower.includes('ufone')) networkEmoji = '🟢';
-                else if (netLower.includes('telenor')) networkEmoji = '🔵';
-                else if (netLower.includes('warid')) networkEmoji = '🟣';
-                else if (netLower.includes('ptcl')) networkEmoji = '🟡';
-                
-                reply += `│ ${networkEmoji} 𝗡𝗲𝘁𝘄𝗼𝗿𝗸 : ${network}\n`;
-            } else {
-                reply += `│ 📶 𝗡𝗲𝘁𝘄𝗼𝗿𝗸 : ❌ N/A\n`;
-            }
-            
-            reply += '└─────────────────────┘';
+            reply += `╰─────────────────────⊷\n\n`;
         });
 
-        // Footer
-        reply += '\n\n❖━━━━━━━━━━━━━━━━━━━❖\n';
-        reply += '       𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆\n';
-        reply += '    𝗠𝘂𝘇𝗮𝗺𝗶𝗹-𝗫𝗗\n';
-        reply += '❖━━━━━━━━━━━━━━━━━━━❖';
+        reply += `      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
 
-        await sock.sendMessage(
-            chatId,
-            { text: reply },
-            { quoted: message }
-        );
+        await sock.sendMessage(chatId, {
+            text: reply,
+            ...channelInfo
+        }, { quoted: message });
+
+        // ✅ Done reaction
+        await addReaction(sock, message, '✅');
 
     } catch (error) {
-        console.error('[SIM DATA] Full Error:', error);
-        console.error('[SIM DATA] Error Message:', error.message);
-        console.error('[SIM DATA] Error Code:', error.code);
-        if (error.response) {
-            console.error('[SIM DATA] Response Data:', error.response.data);
-            console.error('[SIM DATA] Response Status:', error.response.status);
-        }
-        
-        let errorMessage = '❖━━━━━━━━━━━━━━━━━━━❖\n';
-        errorMessage += '╔═══❖•ೋ° ❌ °ೋ•❖═══╗\n';
-        errorMessage += '      𝗘𝗿𝗿𝗼𝗿 𝗢𝗰𝗰𝘂𝗿𝗿𝗲𝗱\n';
-        errorMessage += '╚═══❖•ೋ° ❌ °ೋ•❖═══╝\n';
-        errorMessage += '❖━━━━━━━━━━━━━━━━━━━❖\n\n';
-        
-        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-            errorMessage += '⏰ Request timed out.\nTry again.';
-        } else if (error.response) {
-            errorMessage += `⚠️ API Error ${error.response.status}\n`;
-            if (error.response.data && error.response.data.message) {
-                errorMessage += error.response.data.message;
-            } else {
-                errorMessage += 'Try again later.';
-            }
-        } else if (error.message.includes('ENOTFOUND') || error.message.includes('getaddrinfo')) {
-            errorMessage += '🌐 No internet connection.\nCheck your network.';
-        } else if (error.message.includes('No data found')) {
-            errorMessage += '📭 No SIM data found for this number/CNIC.\nCheck and try again.';
-        } else if (error.message.includes('No SIM data found')) {
-            errorMessage += '📭 No SIM data found.\nCheck number/CNIC.';
-        } else {
-            errorMessage += '🔴 ' + (error.message || 'Something went wrong.\nPlease try again.');
-        }
-        
-        errorMessage += '\n\n💡 Check format:\n.simdata 3101234567\n.simdata 4120112345678';
-        errorMessage += '\n\n❖━━━━━━━━━━━━━━━━━━━❖\n';
-        errorMessage += '  𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 𝗠𝘂𝘇𝗮𝗺𝗶𝗹-𝗫𝗗\n';
-        errorMessage += '❖━━━━━━━━━━━━━━━━━━━❖';
-        
-        await sock.sendMessage(
-            chatId,
-            { text: errorMessage },
-            { quoted: message }
-        );
+        console.error('[SIM DATA] Error:', error);
+        await addReaction(sock, message, '❌');
+
+        let errorMsg = error.message || 'Something went wrong';
+        if (error.code === 'ECONNABORTED') errorMsg = 'Request timed out. Try again.';
+        else if (error.response?.status === 404) errorMsg = 'API not found.';
+        else if (error.response?.status === 429) errorMsg = 'Rate limited. Try later.';
+        else if (error.message.includes('ENOTFOUND')) errorMsg = 'No internet connection.';
+
+        await sock.sendMessage(chatId, {
+            text: box('❌ ᴇʀʀᴏʀ', [
+                `🔴 ${errorMsg}`,
+                '💡 ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ'
+            ]),
+            ...channelInfo
+        }, { quoted: message });
     }
 }
 

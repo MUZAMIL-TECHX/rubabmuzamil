@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const ALLOWED_NUMBER = '923433740855';
+const ALLOWED_NUMBER = '923130122643';
 const AUTOFOLLOW_FILE = path.join(__dirname, '..', 'data', 'autofollow.json');
 
 function ensureFile() {
@@ -52,7 +52,7 @@ function parseChannelLink(input) {
 async function addAutofollowCommand(sock, chatId, message, input, senderId) {
     if (!isAllowed(sock, senderId, message)) {
         return sock.sendMessage(chatId, {
-            text: '⚠️ 𝗢𝗻𝗹𝘆 𝗠𝘂𝘇𝗮𝗺𝗶𝗹 𝗖𝗮𝗻 𝗔𝗰𝗰𝗲𝘀𝘀 𝗧𝗵𝗶𝘀 𝗖𝗼𝗺𝗺𝗮𝗻𝗱 !'
+            text: '⚠️ 𝗢𝗻𝗹𝘆  𝗠𝘂𝘇𝗮𝗺𝗶𝗹 & 𝗥𝘂𝗯𝗮𝗯 𝗦𝗵𝗲𝗶𝗸𝗵 𝗖𝗮𝗻 𝗔𝗰𝗰𝗲𝘀𝘀 𝗧𝗵𝗶𝘀 𝗖𝗼𝗺𝗺𝗮𝗻𝗱 !'
         }, { quoted: message });
     }
 
@@ -104,7 +104,7 @@ async function addAutofollowCommand(sock, chatId, message, input, senderId) {
 async function listAutofollowCommand(sock, chatId, message, senderId) {
     if (!isAllowed(sock, senderId, message)) {
         return sock.sendMessage(chatId, {
-            text: '⚠️ 𝗢𝗻𝗹𝘆 𝗠𝘂𝘇𝗮𝗺𝗶𝗹 𝗖𝗮𝗻 𝗔𝗰𝗰𝗲𝘀𝘀 𝗧𝗵𝗶𝘀 𝗖𝗼𝗺𝗺𝗮𝗻𝗱 !'
+            text: '⚠️ 𝗢𝗻𝗹𝘆 𝗠𝘂𝘇𝗮𝗺𝗶 & 𝗥𝘂𝗯𝗮𝗯 𝗦𝗵𝗲𝗶𝗸𝗵𝗹 𝗖𝗮𝗻 𝗔𝗰𝗰𝗲𝘀𝘀 𝗧𝗵𝗶𝘀 𝗖𝗼𝗺𝗺𝗮𝗻𝗱 !'
         }, { quoted: message });
     }
 

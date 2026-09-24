@@ -94,7 +94,7 @@ async function newsCommand(sock, chatId, message) {
 
         newsMessage += `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-     𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 𝗠𝗨𝗭𝗔𝗠𝗜𝗟-𝗫𝗗`;
+     > 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
 
         // Delete loading message
         try {

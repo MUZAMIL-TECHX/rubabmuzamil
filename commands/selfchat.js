@@ -1,16 +1,52 @@
 const isOwnerOrSudo = require('../lib/isOwner');
 const { readSessionJson, writeSessionJson } = require('../lib/session_data');
-const { askProxAbdullah } = require('../lib/proxabdullah');
+const { askLlama } = require('../lib/llama');
+
+// ===============================
+// 🎯 CHANNEL INFO
+// ===============================
+const channelInfo = {
+    contextInfo: {
+        forwardingScore: 1,
+        isForwarded: true,
+        forwardedNewsletterMessageInfo: {
+            newsletterJid: '120363426106687970@newsletter',
+            newsletterName: '𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋',
+            serverMessageId: -1
+        }
+    }
+};
 
 const DEFAULT_CONFIG = {
     enabled: false,
     mode: 'group'
 };
 
-// Keeps concurrent messages fast while avoiding lost history updates when
-// multiple messages arrive in the same event loop tick.
 const historyCache = new WeakMap();
 const historyLocks = new WeakMap();
+
+// ===============================
+// HELPER: Add Reaction
+// ===============================
+async function addReaction(sock, message, emoji) {
+    try {
+        await sock.sendMessage(message.key.remoteJid, {
+            react: { text: emoji, key: message.key }
+        });
+    } catch (error) {
+        console.error('Reaction error:', error);
+    }
+}
+
+// ===============================
+// HELPER: Box Builder
+// ===============================
+function box(title, lines = []) {
+    let out = `╭┈──〔 ${title} 〕┈──⊷\n`;
+    for (const l of lines) out += `┋⋄ ➠ ${l}\n`;
+    out += `╰─────────────────────⊷\n\n      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
+    return out;
+}
 
 function getConfig(sock) {
     const value = readSessionJson(sock, 'selfchat.json', DEFAULT_CONFIG);
@@ -97,85 +133,144 @@ function cleanMention(text, sock) {
     return cleaned.replace(/\s+/g, ' ').trim();
 }
 
+// ===============================
+// HELP TEXT
+// ===============================
 function helpText() {
-    return [
-        '╭━━━〔 🤖 𝗦𝗘𝗟𝗙 𝗖𝗛𝗔𝗧 〕━━━╮',
-        '┃',
-        '┃ ❍ .selfchat on/off',
-        '┃ ❍ .selfchatset group',
-        '┃ ❍ .selfchatset inbox',
-        '┃',
-        '┃ 𝗚𝗿𝗼𝘂𝗽: mention ya bot ke message ka reply',
-        '┃ 𝗜𝗻𝗯𝗼𝘅: har DM ka jawab + separate memory',
-        '┃',
-        '┃ > 𝗕𝘆: 𝗠𝘂𝘇𝗮𝗺𝗶𝗹-𝗫𝗗',
-        '╰━━━━━━━━━━━━━━━━━━━━━━╯'
-    ].join('\n');
+    return box('🤖 sᴇʟꜰ ᴄʜᴀᴛ ᴄᴏᴍᴍᴀɴᴅs', [
+        '📌 .sᴇʟꜰᴄʜᴀᴛ ᴏɴ/ᴏꜰꜰ',
+        '📌 .sᴇʟꜰᴄʜᴀᴛsᴇᴛ ɢʀᴏᴜᴘ',
+        '📌 .sᴇʟꜰᴄʜᴀᴛsᴇᴛ ɪɴʙᴏx',
+        '',
+        '📖 ɢʀᴏᴜᴘ : ᴍᴇɴᴛɪᴏɴ ᴏʀ ʀᴇᴘʟʏ',
+        '📖 ɪɴʙᴏx : ᴇᴠᴇʀʏ ᴅᴍ ɢᴇᴛs ʀᴇᴘʟʏ'
+    ]);
 }
 
 async function ensureOwner(sock, chatId, message) {
     const senderId = message.key.participant || message.key.remoteJid;
     const allowed = message.key.fromMe || await isOwnerOrSudo(senderId, sock, chatId);
     if (!allowed) {
+        await addReaction(sock, message, '⛔');
         await sock.sendMessage(chatId, {
-            text: '❌ 𝗧𝗵𝗶𝘀 𝗰𝗼𝗺𝗺𝗮𝗻𝗱 𝗶𝘀 𝗼𝗻𝗹𝘆 𝗳𝗼𝗿 𝘁𝗵𝗲 𝗼𝘄𝗻𝗲𝗿/𝘀𝘂𝗱𝗼.',
-            quoted: message
-        });
+            text: box('⛔ ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ', [
+                '🔴 ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ɪs ꜰᴏʀ ᴏᴡɴᴇʀ/sᴜᴅᴏ ᴏɴʟʏ'
+            ]),
+            ...channelInfo
+        }, { quoted: message });
     }
     return allowed;
 }
 
+// ===============================
+// MAIN COMMAND
+// ===============================
 async function selfchatCommand(sock, chatId, message, action = '') {
-    if (!await ensureOwner(sock, chatId, message)) return;
-    const arg = String(action || '').trim().toLowerCase();
+    try {
+        await addReaction(sock, message, '🤖');
 
-    if (!arg) {
-        await sock.sendMessage(chatId, { text: helpText(), quoted: message });
-        return;
-    }
+        if (!await ensureOwner(sock, chatId, message)) return;
 
-    const config = getConfig(sock);
-    if (arg === 'on' || arg === 'enable') {
-        config.enabled = true;
-        saveConfig(sock, config);
+        const arg = String(action || '').trim().toLowerCase();
+
+        if (!arg) {
+            await addReaction(sock, message, '📖');
+            await sock.sendMessage(chatId, { 
+                text: helpText(),
+                ...channelInfo
+            }, { quoted: message });
+            return;
+        }
+
+        const config = getConfig(sock);
+
+        if (arg === 'on' || arg === 'enable') {
+            config.enabled = true;
+            saveConfig(sock, config);
+            await addReaction(sock, message, '✅');
+            await sock.sendMessage(chatId, {
+                text: box('✅ sᴇʟꜰᴄʜᴀᴛ ᴇɴᴀʙʟᴇᴅ', [
+                    `🔹 sᴛᴀᴛᴜs : 🟢 ᴏɴ`,
+                    `🔹 ᴍᴏᴅᴇ   : ${config.mode.toUpperCase()}`
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+            return;
+        }
+
+        if (arg === 'off' || arg === 'disable') {
+            config.enabled = false;
+            saveConfig(sock, config);
+            await addReaction(sock, message, '✅');
+            await sock.sendMessage(chatId, {
+                text: box('❌ sᴇʟꜰᴄʜᴀᴛ ᴅɪsᴀʙʟᴇᴅ', [
+                    `🔹 sᴛᴀᴛᴜs : 🔴 ᴏꜰꜰ`
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+            return;
+        }
+
+        await addReaction(sock, message, '📖');
+        await sock.sendMessage(chatId, { 
+            text: helpText(),
+            ...channelInfo
+        }, { quoted: message });
+
+    } catch (error) {
+        console.error('Selfchat command error:', error);
+        await addReaction(sock, message, '❌');
         await sock.sendMessage(chatId, {
-            text: `✅ 𝗦𝗲𝗹𝗳 𝗰𝗵𝗮𝘁 𝗶𝘀 𝗻𝗼𝘄 𝗢𝗡\n❍ 𝗠𝗼𝗱𝗲: ${config.mode}`,
-            quoted: message
-        });
-        return;
+            text: box('❌ ᴇʀʀᴏʀ', [
+                `🔴 ${error.message || 'Something went wrong'}`
+            ]),
+            ...channelInfo
+        }, { quoted: message });
     }
-
-    if (arg === 'off' || arg === 'disable') {
-        config.enabled = false;
-        saveConfig(sock, config);
-        await sock.sendMessage(chatId, {
-            text: '✅ 𝗦𝗲𝗹𝗳 𝗰𝗵𝗮𝘁 𝗶𝘀 𝗻𝗼𝘄 𝗢𝗙𝗙',
-            quoted: message
-        });
-        return;
-    }
-
-    await sock.sendMessage(chatId, { text: helpText(), quoted: message });
 }
 
 async function selfchatSetCommand(sock, chatId, message, mode = '') {
-    if (!await ensureOwner(sock, chatId, message)) return;
-    mode = String(mode || '').trim().toLowerCase();
-    if (!['group', 'inbox'].includes(mode)) {
-        await sock.sendMessage(chatId, {
-            text: '❌ 𝗨𝘀𝗲: .selfchatset group/inbox',
-            quoted: message
-        });
-        return;
-    }
+    try {
+        await addReaction(sock, message, '⚙️');
 
-    const config = getConfig(sock);
-    config.mode = mode;
-    saveConfig(sock, config);
-    await sock.sendMessage(chatId, {
-        text: `✅ 𝗦𝗲𝗹𝗳 𝗰𝗵𝗮𝘁 𝗺𝗼𝗱𝗲 𝘀𝗲𝘁 𝘁𝗼: ${mode.toUpperCase()}`,
-        quoted: message
-    });
+        if (!await ensureOwner(sock, chatId, message)) return;
+
+        mode = String(mode || '').trim().toLowerCase();
+
+        if (!['group', 'inbox'].includes(mode)) {
+            await addReaction(sock, message, '❌');
+            await sock.sendMessage(chatId, {
+                text: box('❌ ɪɴᴠᴀʟɪᴅ ᴍᴏᴅᴇ', [
+                    '📌 ᴜsᴇ : .sᴇʟꜰᴄʜᴀᴛsᴇᴛ ɢʀᴏᴜᴘ',
+                    '📌 ᴜsᴇ : .sᴇʟꜰᴄʜᴀᴛsᴇᴛ ɪɴʙᴏx'
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+            return;
+        }
+
+        const config = getConfig(sock);
+        config.mode = mode;
+        saveConfig(sock, config);
+
+        await addReaction(sock, message, '✅');
+        await sock.sendMessage(chatId, {
+            text: box('✅ ᴍᴏᴅᴇ ᴜᴘᴅᴀᴛᴇᴅ', [
+                `🔹 ᴍᴏᴅᴇ : ${mode.toUpperCase()}`
+            ]),
+            ...channelInfo
+        }, { quoted: message });
+
+    } catch (error) {
+        console.error('Selfchat set error:', error);
+        await addReaction(sock, message, '❌');
+        await sock.sendMessage(chatId, {
+            text: box('❌ ᴇʀʀᴏʀ', [
+                `🔴 ${error.message || 'Something went wrong'}`
+            ]),
+            ...channelInfo
+        }, { quoted: message });
+    }
 }
 
 function buildPrompt(history, currentMessage, mode) {
@@ -208,6 +303,9 @@ async function updateHistory(sock, key, entry) {
     });
 }
 
+// ===============================
+// MESSAGE HANDLER
+// ===============================
 async function handleSelfChatMessage(sock, chatId, message, userMessage, senderId) {
     const config = getConfig(sock);
     if (!config.enabled || message.key.fromMe) return false;
@@ -240,19 +338,25 @@ async function handleSelfChatMessage(sock, chatId, message, userMessage, senderI
     } catch (_) {}
 
     try {
-        const response = await askProxAbdullah(buildPrompt(recent, cleanText, config.mode));
+        const response = await askLlama(buildPrompt(recent, cleanText, config.mode));
         if (!response) return false;
 
         await updateHistory(sock, historyKey, {
             role: 'assistant',
             text: response
         });
-        await sock.sendMessage(chatId, { text: response }, { quoted: message });
+
+        // ✅ Send with channel info
+        await sock.sendMessage(chatId, { 
+            text: response,
+            ...channelInfo
+        }, { quoted: message });
+
         return true;
     } catch (error) {
         console.error('❌ Selfchat API error:', error?.message || error);
-        if (!process.env.PROXABDULLAH_API_KEY && !process.env.GEMINI_API_KEY) {
-            console.error('Set PROXABDULLAH_API_KEY to enable selfchat.');
+        if (!process.env.LLAMA_API_KEY) {
+            console.error('Set LLAMA_API_KEY to enable selfchat.');
         }
         return false;
     }

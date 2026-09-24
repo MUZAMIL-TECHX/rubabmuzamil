@@ -188,7 +188,7 @@ async function fetchCommand(sock, chatId, message) {
 ┃ ❍ Example : .fetch https://google.com
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -202,7 +202,7 @@ async function fetchCommand(sock, chatId, message) {
 ┃ ❍ Example : https://example.com
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -239,7 +239,7 @@ async function fetchCommand(sock, chatId, message) {
 ┃ ❍ Status: ${statusCode}
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -263,7 +263,7 @@ async function fetchCommand(sock, chatId, message) {
 ┃ ❍ Downloading...
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
         }, { quoted: message });
 
         const assetPromises = assetUrls.map(assetUrl => downloadAsset(assetUrl, baseUrl, tmpDir));
@@ -312,7 +312,7 @@ async function fetchCommand(sock, chatId, message) {
 
 📥 Sending ZIP file...
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
         }, { quoted: message });
 
         await sock.sendMessage(chatId, {
@@ -330,7 +330,7 @@ async function fetchCommand(sock, chatId, message) {
 
 💡 Extract and open ${htmlFileName}
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
         }, { quoted: message });
 
         await addReaction(sock, message, '✅');
@@ -364,7 +364,7 @@ async function fetchCommand(sock, chatId, message) {
 ┃ ❍ Please try again later
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
         }, { quoted: message });
     }
 }

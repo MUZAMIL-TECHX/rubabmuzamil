@@ -31,7 +31,7 @@ async function searchimgCommand(sock, chatId, message) {
 ┃ ❍ Example : .searchimg beautiful nature
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -60,7 +60,7 @@ async function searchimgCommand(sock, chatId, message) {
 ┃ ❍ Try different keywords
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -77,7 +77,7 @@ async function searchimgCommand(sock, chatId, message) {
 ┃ ❍ Showing : ${uniqueImages.length} images
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
         }, { quoted: message });
 
         // Send each image
@@ -90,7 +90,7 @@ async function searchimgCommand(sock, chatId, message) {
 ┃ ❍ Source : Pinterest
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`;
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
 
                 await sock.sendMessage(chatId, {
                     image: { url: imgUrl },
@@ -131,7 +131,7 @@ async function searchimgCommand(sock, chatId, message) {
 ┃ ❍ Please try again later
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
         }, { quoted: message });
     }
 }

@@ -1,23 +1,52 @@
 const settings = require('../settings');
 
 async function creatorCommand(sock, chatId, message) {
+    // Add reaction
+    await sock.sendMessage(chatId, {
+        react: {
+            text: '👑',
+            key: message.key
+        }
+    });
+
     const reply = 
-        '╔═══❖•ೋ° 🌙 °ೋ•❖═══╗\n' +
-        '👑 𝑪𝑹𝑬𝑨𝑻𝑶𝑹 𝑵𝑨𝑴𝑬 👑\n' +
-        '𝑴𝑼𝒁𝑨𝑴𝑰𝑳 𝑲𝑯𝑨𝑵\n' +
-        '╚═══❖•ೋ° 📱 °ೋ•❖═══╝\n' +
-        '\n' +
-        '📞 𝑪𝑹𝑬𝑨𝑻𝑶𝑹 𝑵𝑼𝑴𝑩𝑬𝑹\n' +
-        '➤ 𝟎𝟑𝟒𝟑𝟑𝟕𝟒𝟎𝟖𝟓𝟓\n' +
-        '\n' +
-        '⚡━━━━━━━━━━━━━━⚡\n' +
-        '🔥 𝑷𝑶𝑾𝑬𝑹𝑬𝑫 𝑩𝒀 🔥\n' +
-        '👑 𝑴𝑼𝒁𝑨𝑴𝑰𝑳-𝑿𝑫 👑\n' +
-        '⚡━━━━━━━━━━━━━━⚡';
+`╔════════════════════════╗
+║     👑 𝑪𝑹𝑬𝑨𝑻𝑶𝑹𝑺 👑
+╚════════════════════════╝
+
+╭┈──〔 👤 𝑪𝑹𝑬𝑨𝑻𝑶𝑹 𝟏 〕┈──⊷
+┋⋄ ➠ 👤 𝑵𝒂𝒎𝒆   : 𝑴𝑼𝒁𝑨𝑴𝑰𝑳
+┋⋄ ➠ 📱 𝑵𝒖𝒎𝒃𝒆𝒓 : 𝟎𝟑𝟏𝟑𝟎𝟏𝟐𝟐𝟔𝟒𝟑
+┋⋄ ➠ 📢 𝑯𝒂𝒏𝒅𝒍𝒆  : @Muzamil
+╰─────────────────────⊷
+
+╭┈──〔 👤 𝑪𝑹𝑬𝑨𝑻𝑶𝑹 𝟐 〕┈──⊷
+┋⋄ ➠ 👤 𝑵𝒂𝒎𝒆   : 𝑹𝑼𝑩𝑨𝑩 𝑺𝑯𝑬𝑰𝑲𝑯
+┋⋄ ➠ 📱 𝑵𝒖𝒎𝒃𝒆𝒓 : 𝟎𝟑𝟏𝟑𝟎𝟏𝟐𝟐𝟔𝟒𝟑
+┋⋄ ➠ 📢 𝑯𝒂𝒏𝒅𝒍𝒆  : @Rubab
+╰─────────────────────⊷
+
+╭┈──〔 🔗 𝒄𝒐𝒏𝒏𝒆𝒄𝒕 〕┈──⊷
+┋⋄ ➠ 📱 𝗪𝗵𝗮𝘁𝘀𝗔𝗽𝗽 𝗖𝗵𝗮𝗻𝗻𝗲𝗹
+┋⋄ ➠ https://whatsapp.com/channel/0029VbCkm3rAe5VzCYLtNb2u
+╰─────────────────────⊷
+
+      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
 
     await sock.sendMessage(
         chatId,
-        { text: reply },
+        { 
+            text: reply,
+            contextInfo: {
+                forwardingScore: 1,
+                isForwarded: true,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: '120363426106687970@newsletter',
+                    newsletterName: '𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋',
+                    serverMessageId: -1
+                }
+            }
+        },
         { quoted: message }
     );
 }

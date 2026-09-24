@@ -28,43 +28,55 @@ async function addReaction(sock, message, emoji) {
     } catch (error) {}
 }
 
+async function editMessage(sock, chatId, msgId, newText, channelInfo) {
+    try {
+        await sock.sendMessage(chatId, {
+            text: newText,
+            edit: {
+                remoteJid: chatId,
+                fromMe: true,
+                id: msgId
+            },
+            ...channelInfo
+        });
+    } catch (error) {
+        console.error('Edit error:', error);
+    }
+}
+
 async function pingCommand(sock, chatId, message) {
     try {
-        // 🏓 Reaction
         await addReaction(sock, message, '🏓');
 
-        // Get initial uptime
-        const uptimeFormatted = formatTime(process.uptime());
+        const channelInfo = {
+            contextInfo: {
+                forwardingScore: 1,
+                isForwarded: true,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: '120363426106687970@newsletter',
+                    newsletterName: '𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋',
+                    serverMessageId: -1
+                }
+            }
+        };
 
-        // Send initial message
-        const pingMsg = await sock.sendMessage(chatId, { 
-            text: `╔══════════════════════════════╗\n` +
-                  `║      🏓 𝗣𝗜𝗡𝗚 𝗠𝗨𝗭𝗔𝗠𝗜𝗟-𝗫𝗗\n` +
-                  `╠══════════════════════════════╣\n` +
-                  `║ 🚀 𝗣𝗶𝗻𝗴   : Calculating...\n` +
-                  `║ ⏱️ 𝗨𝗽𝘁𝗶𝗺𝗲 : ${uptimeFormatted}\n` +
-                  `║ 🔖 𝗩𝗲𝗿    : v${settings.version}\n` +
-                  `╚══════════════════════════════╝\n` +
-                  `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-                  `     𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 𝗠𝗨𝗭𝗔𝗠𝗜𝗟-𝗫𝗗`
+        const pingMsg = await sock.sendMessage(chatId, {
+            text: `🏓 *Pinging...*`,
+            ...channelInfo
         }, { quoted: message });
 
         const msgId = pingMsg.key.id;
 
-        // Live updates - 5 seconds with changing ping
-        let pingValues = [];
-        
-        // Generate random ping values between 20-80ms
-        for (let i = 0; i < 5; i++) {
-            const randomPing = Math.floor(Math.random() * 60) + 20; // 20-80ms
-            pingValues.push(randomPing);
-        }
+        const footerAnimations = [
+            `༺𓆩 𝑪𝟗 𝑀𝑼𝑍𝜦𝑀𝜤𝐋 𓆪༻`,
+            `𓆪༻ 𝑅𝑼𝛣𝜦𝛣 ༺𓆩`,
+            `༺𓆩𝗧𝗲𝗮𝗺𝗥𝗲𝗱𝗫𝗵𝗮𝗰𝗸𝗲𝗿𝘀™𓆪༻`,
+            `𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
+        ];
 
-        // Update every second for 5 seconds
-        for (let i = 0; i < pingValues.length; i++) {
-            const currentPing = pingValues[i];
-            
-            // Determine ping emoji and status
+        for (let i = 0; i < 4; i++) {
+            const currentPing = Math.floor(Math.random() * 60) + 20;
+
             let pingEmoji = '🚀';
             let pingStatus = 'Excellent';
             if (currentPing > 200) { pingEmoji = '🐢'; pingStatus = 'Slow'; }
@@ -72,47 +84,36 @@ async function pingCommand(sock, chatId, message) {
             else if (currentPing > 50) { pingEmoji = '⚡'; pingStatus = 'Fast'; }
             else { pingEmoji = '🚀'; pingStatus = 'Excellent'; }
 
-            // Update uptime
             const currentUptime = formatTime(process.uptime());
+            const currentRam = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1);
+            const footer = footerAnimations[i];
 
-            const newText = `╔══════════════════════════════╗\n` +
-                            `║      🏓 𝗣𝗜𝗡𝗚 𝗠𝗨𝗭𝗔𝗠𝗜𝗟-𝗫𝗗\n` +
-                            `╠══════════════════════════════╣\n` +
-                            `║ ${pingEmoji} 𝗣𝗶𝗻𝗴   : ${currentPing} ms (${pingStatus})\n` +
-                            `║ ⏱️ 𝗨𝗽𝘁𝗶𝗺𝗲 : ${currentUptime}\n` +
-                            `║ 🔖 𝗩𝗲𝗿    : v${settings.version}\n` +
-                            `╚══════════════════════════════╝\n` +
-                            `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-                            `     𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 𝗠𝗨𝗭𝗔𝗠𝗜𝗟-𝗫𝗗`;
+            const newText = 
+`╔════════════════════════╗
+║    🏓 𝗣𝗜𝗡𝗚 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋
+╠════════════════════════╣
+║ ${pingEmoji} 𝗣𝗶𝗻𝗴   : ${currentPing} ms (${pingStatus})
+║ ⏱️ 𝗨𝗽𝘁𝗶𝗺𝗲 : ${currentUptime}
+║ 🔖 𝗩𝗲𝗿    : v${settings.version}
+║ 🧠 𝗥𝗔𝗠    : ${currentRam} MB
+╚════════════════════════╝
+━━━━━━━━━━━━━━━━━━━━━━━━
+       ${footer}`;
 
-            // Edit message
-            try {
-                await sock.sendMessage(chatId, {
-                    text: newText,
-                    edit: {
-                        remoteJid: chatId,
-                        fromMe: true,
-                        id: msgId
-                    }
-                });
-            } catch (editError) {
-                console.error('Edit error:', editError);
-            }
+            await editMessage(sock, chatId, msgId, newText, channelInfo);
 
-            // Wait 1 second before next update (except last)
-            if (i < pingValues.length - 1) {
+            if (i < 3) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
 
-        // ✅ Done reaction after all updates
         await addReaction(sock, message, '✅');
 
     } catch (error) {
         console.error('Ping error:', error);
         await addReaction(sock, message, '❌');
-        await sock.sendMessage(chatId, { 
-            text: `❌ Error: ${error.message || 'Unknown'}` 
+        await sock.sendMessage(chatId, {
+            text: `❌ Error: ${error.message || 'Unknown'}`
         }, { quoted: message });
     }
 }

@@ -50,7 +50,7 @@ async function chreactCommand(sock, chatId, rawText, message) {
         }
 
         await sock.sendMessage(chatId, {
-            text: `╭━━━〔 ✅ 𝗥𝗘𝗔𝗖𝗧 𝗦𝗘𝗡𝗧 𝗦𝗨𝗖𝗖𝗘𝗦𝗦𝗙𝗨𝗟𝗟𝗬 〕━━━╮\n┃ 𝗣𝗼𝘀𝘁: ${args.link}\n┃ 𝗘𝗺𝗼𝗷𝗶: ${args.emoji}\n┃\n┃ 𝗥𝗲𝗮𝗰𝘁 𝗦𝗲𝗻𝘁 𝗦𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆\n┃ 𝗕𝘆: 𝗠𝘂𝘇𝗮𝗺𝗶𝗹-𝗫𝗗\n╰━━━━━━━━━━━━━━━━━━━━━━━━╯`
+            text: `╭━━━〔 ✅ 𝗥𝗘𝗔𝗖𝗧 𝗦𝗘𝗡𝗧 𝗦𝗨𝗖𝗖𝗘𝗦𝗦𝗙𝗨𝗟𝗟𝗬 〕━━━╮\n┃ 𝗣𝗼𝘀𝘁: ${args.link}\n┃ 𝗘𝗺𝗼𝗷𝗶: ${args.emoji}\n┃\n┃ 𝗥𝗲𝗮𝗰𝘁 𝗦𝗲𝗻𝘁 𝗦𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆\n┃ 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋\n╰━━━━━━━━━━━━━━━━━━━━━━━━╯`
         }, { quoted: message });
     } catch (error) {
         console.error('Channel react error:', error.response?.data || error.message);

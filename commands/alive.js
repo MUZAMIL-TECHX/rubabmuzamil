@@ -1,7 +1,7 @@
 const settings = require("../settings");
 async function aliveCommand(sock, chatId, message) {
     try {
-        const message1 = `*MUZAMIL-XD is Active!*\n\n` +
+        const message1 = `* 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋 𝗜𝘀 𝗔𝗰𝘁𝗶𝘃𝗮𝘁𝗲𝗱 ✅!*\n\n` +
                        `*Version:* ${settings.version}\n` +
                        `*Status:* Online\n` +
                        `*Mode:* Public\n\n` +
@@ -19,7 +19,7 @@ async function aliveCommand(sock, chatId, message) {
                 isForwarded: true,
                 forwardedNewsletterMessageInfo: {
                     newsletterJid: '120363426106687970@newsletter',
-                    newsletterName: 'MUZAMIL-XD',
+                    newsletterName: '𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋',
                     serverMessageId: -1
                 }
             }

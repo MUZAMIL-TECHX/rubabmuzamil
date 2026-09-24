@@ -260,7 +260,7 @@ async function fetchapiCommand(sock, chatId, message) {
 ┃ ❍ Example : .fetchapi https://example.com
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -273,7 +273,7 @@ async function fetchapiCommand(sock, chatId, message) {
 ┃ ❍ Private/local IPs not allowed
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -309,7 +309,7 @@ async function fetchapiCommand(sock, chatId, message) {
 ┃ ❍ Status: ${statusCode}
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -332,7 +332,7 @@ async function fetchapiCommand(sock, chatId, message) {
 ┃ ❍ Downloading (5 at a time)...
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
 
             const tasks = assetUrls.map(assetUrl => 
@@ -384,7 +384,7 @@ async function fetchapiCommand(sock, chatId, message) {
 ┃ ❍ Max allowed: 50 MB
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -409,7 +409,7 @@ async function fetchapiCommand(sock, chatId, message) {
 
 📥 Sending ZIP file...
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
         }, { quoted: message });
 
         await sock.sendMessage(chatId, {
@@ -427,7 +427,7 @@ async function fetchapiCommand(sock, chatId, message) {
 
 💡 Extract and open ${htmlFileName}
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
         }, { quoted: message });
 
         await addReaction(sock, message, '✅');
@@ -451,7 +451,7 @@ async function fetchapiCommand(sock, chatId, message) {
 ┃ ❍ Please try again later
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
         }, { quoted: message });
 
     } finally {

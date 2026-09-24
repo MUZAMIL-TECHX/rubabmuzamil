@@ -41,7 +41,7 @@ async function sosCommand(sock, chatId, message, mode) {
 ┃ ❍ This command can only be used in a group
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -56,7 +56,7 @@ async function sosCommand(sock, chatId, message, mode) {
 ┃ ❍ Example : .sos remove @admin
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -79,7 +79,7 @@ async function sosCommand(sock, chatId, message, mode) {
 ┃ ❍ Action : Cannot perform admin actions
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`;
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
             reactionEmoji = '🔒';
         } else {
             resultText = `
@@ -89,7 +89,7 @@ async function sosCommand(sock, chatId, message, mode) {
 ┃ ❍ Action : Can now perform admin actions
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`;
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
             reactionEmoji = '✅';
         }
 
@@ -109,7 +109,7 @@ async function sosCommand(sock, chatId, message, mode) {
 ┃ ❍ Please try again later
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
         }, { quoted: message });
     }
 }
@@ -139,7 +139,7 @@ async function handleSosAction(sock, update) {
 ┃ ❍ You have been removed from the group
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`,
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`,
             mentions: [author]
         });
 

@@ -5,14 +5,25 @@ const {
 } = require('@whiskeysockets/baileys');
 const crypto = require('crypto');
 
-// Helper function to add reaction
+// ===============================
+// 🎯 CHANNEL INFO
+// ===============================
+const channelInfo = {
+    contextInfo: {
+        forwardingScore: 1,
+        isForwarded: true,
+        forwardedNewsletterMessageInfo: {
+            newsletterJid: '120363426106687970@newsletter',
+            newsletterName: '𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋',
+            serverMessageId: -1
+        }
+    }
+};
+
 async function addReaction(sock, message, emoji) {
     try {
         await sock.sendMessage(message.key.remoteJid, {
-            react: {
-                text: emoji,
-                key: message.key
-            }
+            react: { text: emoji, key: message.key }
         });
     } catch (error) {
         console.error('Reaction error:', error);
@@ -63,9 +74,6 @@ async function downloadMedia(media, type) {
 }
 
 function ownerJid(sock) {
-    // The connected WhatsApp account is the owner for this session. Do not
-    // use settings.ownerNumber here: a copied/default setting can point to a
-    // different account and makes saved media land in the wrong inbox.
     const connected = String(sock?.user?.id || sock?.user?.jid || '')
         .split('@')[0]
         .split(':')[0]
@@ -73,47 +81,78 @@ function ownerJid(sock) {
     return connected ? `${connected}@s.whatsapp.net` : null;
 }
 
+// ===============================
+// ✅ UPLOAD HANDLER (FIXED)
+// ===============================
+async function uploadToWA(sock, buffer, type) {
+    if (typeof sock.waUploadToServer === 'function') {
+        return await sock.waUploadToServer(buffer, type);
+    }
+    if (sock?.mediaUploader?.upload) {
+        return await sock.mediaUploader.upload(buffer, type);
+    }
+    throw new Error('Media uploader not available');
+}
+
+// ===============================
+// ✅ GROUP STATUS SENDER (FIXED)
+// ===============================
 async function sendGroupStatus(sock, groupJid, content) {
     if (!groupJid?.endsWith('@g.us')) {
         throw new Error('This command can only be used in a group.');
     }
 
-    try {
-        // Create the message with proper upload function
-        const messageSecret = crypto.randomBytes(32);
-        const innerMessage = await generateWAMessageContent(content, {
-            upload: async (buffer, type) => {
-                // Fallback upload if waUploadToServer is not available
-                if (typeof sock.waUploadToServer === 'function') {
-                    return sock.waUploadToServer(buffer, type);
-                }
-                // Alternative upload method
-                const { upload } = require('@whiskeysockets/baileys');
-                return upload(buffer, type);
-            }
-        });
+    // ✅ STEP 1: Upload media first (agar media hai)
+    const uploadedContent = { ...content };
 
-        const wrapped = generateWAMessageFromContent(groupJid, {
-            messageContextInfo: { messageSecret },
-            groupStatusMessageV2: {
-                message: {
-                    ...innerMessage,
-                    messageContextInfo: { messageSecret }
-                }
-            }
-        }, {});
-
-        await sock.relayMessage(groupJid, wrapped.message, {
-            messageId: wrapped.key.id
-        });
-
-        return true;
-    } catch (error) {
-        console.error('Send group status error:', error);
-        throw new Error(`Failed to post status: ${error.message}`);
+    if (content.image) {
+        const up = await uploadToWA(sock, content.image, 'image');
+        uploadedContent.image = up.url || up;
+        delete content.image;
     }
+    if (content.video) {
+        const up = await uploadToWA(sock, content.video, 'video');
+        uploadedContent.video = up.url || up;
+        delete content.video;
+    }
+    if (content.audio) {
+        const up = await uploadToWA(sock, content.audio, 'audio');
+        uploadedContent.audio = up.url || up;
+        delete content.audio;
+    }
+    if (content.document) {
+        const up = await uploadToWA(sock, content.document, 'document');
+        uploadedContent.document = up.url || up;
+        delete content.document;
+    }
+
+    // ✅ STEP 2: Build message content with proper keys
+    const messageSecret = crypto.randomBytes(32);
+    const innerMessage = await generateWAMessageContent(uploadedContent, {
+        upload: (buf, type) => uploadToWA(sock, buf, type)
+    });
+
+    // ✅ STEP 3: Wrap for group status
+    const wrapped = generateWAMessageFromContent(groupJid, {
+        messageContextInfo: { messageSecret },
+        groupStatusMessageV2: {
+            message: {
+                ...innerMessage,
+                messageContextInfo: { messageSecret }
+            }
+        }
+    }, {});
+
+    await sock.relayMessage(groupJid, wrapped.message, {
+        messageId: wrapped.key.id
+    });
+
+    return true;
 }
 
+// ===============================
+// 📡 GCSTATUS COMMAND (ULTRA DESIGN)
+// ===============================
 async function gcstatusCommand(sock, chatId, message, commandText = '') {
     try {
         await addReaction(sock, message, '📡');
@@ -122,17 +161,17 @@ async function gcstatusCommand(sock, chatId, message, commandText = '') {
             await addReaction(sock, message, '❌');
             await sock.sendMessage(chatId, {
                 text: `
-╭━━━〔 ❌ *GROUP ONLY* 〕━━━┈⊷
-┃ ❍ This command can only be used in a group
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 ❌ ɢʀᴏᴜᴘ ᴏɴʟʏ 〕┈──⊷
+┋⋄ ➠ 🔴 ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ɪs ꜰᴏʀ ɢʀᴏᴜᴘs ᴏɴʟʏ
+╰─────────────────────⊷
 
-> By; MUZAMIL-XD`
+      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`,
+                ...channelInfo
             }, { quoted: message });
             return;
         }
 
         const quoted = quotedMessageOf(message);
-        const media = quoted.imageMessage || quoted.videoMessage || quoted.audioMessage || quoted.documentMessage;
         const quotedText = quoted.conversation ||
             quoted.extendedTextMessage?.text ||
             quoted.imageMessage?.caption ||
@@ -140,22 +179,31 @@ async function gcstatusCommand(sock, chatId, message, commandText = '') {
             '';
         const directText = String(commandText || '').trim();
 
-        if (!media && !quotedText && !directText) {
+        const hasMedia =
+            quoted.imageMessage ||
+            quoted.videoMessage ||
+            quoted.audioMessage ||
+            quoted.documentMessage;
+
+        if (!hasMedia && !quotedText && !directText) {
             await addReaction(sock, message, '❌');
             await sock.sendMessage(chatId, {
                 text: `
-╭━━━〔 ❌ *NO REPLY* 〕━━━┈⊷
-┃ ❍ Reply to an image, video, audio,
-┃ ❍ document, or text with .gcstatus
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 ❌ ɴᴏ ʀᴇᴘʟʏ 〕┈──⊷
+┋⋄ ➠ 📌 ʀᴇᴘʟʏ ᴛᴏ ᴀɴʏ ᴍᴇᴅɪᴀ ᴏʀ ᴛᴇxᴛ
+┋⋄ ➠ 🖼️ ɪᴍᴀɢᴇ / ᴠɪᴅᴇᴏ / ᴀᴜᴅɪᴏ
+┋⋄ ➠ 📎 ᴅᴏᴄᴜᴍᴇɴᴛ / ᴛᴇxᴛ
+╰─────────────────────⊷
 
-> By; MUZAMIL-XD`
+      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`,
+                ...channelInfo
             }, { quoted: message });
             return;
         }
 
+        // ✅ Build status content with correct keys
         let statusContent;
-        
+
         try {
             if (quoted.imageMessage) {
                 const buffer = await downloadMedia(quoted.imageMessage, 'image');
@@ -195,38 +243,42 @@ async function gcstatusCommand(sock, chatId, message, commandText = '') {
             await addReaction(sock, message, '❌');
             await sock.sendMessage(chatId, {
                 text: `
-╭━━━〔 ❌ *DOWNLOAD FAILED* 〕━━━┈⊷
-┃ ❍ ${downloadError.message || 'Could not download media'}
-┃ ❍ Please try again
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 ❌ ᴅᴏᴡɴʟᴏᴀᴅ ꜰᴀɪʟᴇᴅ 〕┈──⊷
+┋⋄ ➠ 🔴 ${downloadError.message || 'Could not download media'}
+┋⋄ ➠ 💡 ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ
+╰─────────────────────⊷
 
-> By; MUZAMIL-XD`
+      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`,
+                ...channelInfo
             }, { quoted: message });
             return;
         }
 
-        // Send to group status
+        // ✅ Post to group status
         try {
             await sendGroupStatus(sock, chatId, statusContent);
             await addReaction(sock, message, '✅');
             await sock.sendMessage(chatId, {
                 text: `
-╭━━━〔 ✅ *STATUS POSTED* 〕━━━┈⊷
-┃ ❍ Posted to group status successfully
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 ✅ sᴛᴀᴛᴜs ᴘᴏsᴛᴇᴅ 〕┈──⊷
+┋⋄ ➠ 📡 ᴘᴏsᴛᴇᴅ ᴛᴏ ɢʀᴏᴜᴘ sᴛᴀᴛᴜs
+┋⋄ ➠ ✅ sᴜᴄᴄᴇssꜰᴜʟʟʏ
+╰─────────────────────⊷
 
-> By; MUZAMIL-XD`
+      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`,
+                ...channelInfo
             }, { quoted: message });
         } catch (sendError) {
             await addReaction(sock, message, '❌');
             await sock.sendMessage(chatId, {
                 text: `
-╭━━━〔 ❌ *POST FAILED* 〕━━━┈⊷
-┃ ❍ ${sendError.message || 'Could not post to group status'}
-┃ ❍ Please try again
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 ❌ ᴘᴏsᴛ ꜰᴀɪʟᴇᴅ 〕┈──⊷
+┋⋄ ➠ 🔴 ${sendError.message || 'Could not post'}
+┋⋄ ➠ 💡 ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ
+╰─────────────────────⊷
 
-> By; MUZAMIL-XD`
+      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`,
+                ...channelInfo
             }, { quoted: message });
         }
 
@@ -235,42 +287,29 @@ async function gcstatusCommand(sock, chatId, message, commandText = '') {
         await addReaction(sock, message, '❌');
         await sock.sendMessage(chatId, {
             text: `
-╭━━━〔 ❌ *ERROR* 〕━━━┈⊷
-┃ ❍ ${error.message || 'Something went wrong'}
-┃ ❍ Please try again later
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 ❌ ᴇʀʀᴏʀ 〕┈──⊷
+┋⋄ ➠ 🔴 ${error.message || 'Something went wrong'}
+┋⋄ ➠ 💡 ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ
+╰─────────────────────⊷
 
-> By; MUZAMIL-XD`
+      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`,
+            ...channelInfo
         }, { quoted: message });
     }
 }
 
 const VIEW_ONCE_SAVE_TRIGGERS = new Set([
-    'good',
-    'cute',
-    'mashallah',
-    'wow',
-    'sosad',
-    'hehe',
-    '🙂',
-    '🥰',
-    '😢'
+    'good', 'cute', 'mashallah', 'wow', 'sosad', 'hehe', '🙂', '🥰', '😢'
 ]);
 
 const STATUS_SAVE_TRIGGERS = new Set([
-    'wow',
-    'good',
-    'acha',
-    'sendme'
+    'wow', 'good', 'acha', 'sendme'
 ]);
 
 function senderDetails(message) {
     const sender = message?.key?.participant || message?.key?.remoteJid || '';
     const number = String(sender).split('@')[0].split(':')[0];
-    return {
-        sender,
-        label: number ? `@${number}` : 'Unknown sender'
-    };
+    return { sender, label: number ? `@${number}` : 'Unknown sender' };
 }
 
 function quotedTextOf(quoted) {
@@ -350,17 +389,12 @@ async function sendQuotedToOwner(sock, message, trigger, { requireViewOnce = fal
     }
 }
 
-// Replying to a view-once image, video, or voice note with any supported
-// trigger saves it in the inbox of the currently connected account.
 async function goodCommand(sock, message, trigger = 'good') {
     const normalizedTrigger = String(trigger || '').trim().toLowerCase();
     if (!VIEW_ONCE_SAVE_TRIGGERS.has(normalizedTrigger)) return false;
     return sendQuotedToOwner(sock, message, normalizedTrigger, { requireViewOnce: true });
 }
 
-// A status reply has contextInfo.remoteJid === status@broadcast in Baileys.
-// Only status replies are handled here, so "wow"/"good" in an ordinary chat
-// remains available to the normal bot/chatbot flow.
 async function statusSaveCommand(sock, message, trigger) {
     const normalizedTrigger = String(trigger || '').trim().toLowerCase();
     if (!STATUS_SAVE_TRIGGERS.has(normalizedTrigger)) return false;

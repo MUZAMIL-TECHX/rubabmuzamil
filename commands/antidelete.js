@@ -110,7 +110,7 @@ async function handleAntideleteCommand(sock, chatId, message, match) {
 ┃ ❍ Usage  : .antidelete on/off
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> 𝐂𝐑𝐄𝐀𝐓𝐄𝐑: Muzamil Khan`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -136,7 +136,7 @@ async function handleAntideleteCommand(sock, chatId, message, match) {
 ┃ ❍ Updated: ${match === 'on' ? 'Enabled ✅' : 'Disabled ❌'}
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> 𝐂𝐑𝐄𝐀𝐓𝐄𝐑: Muzamil Khan`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
         }, { quoted: message });
 
     } catch (error) {
@@ -285,7 +285,7 @@ async function handleMessageRevocation(sock, revocationMessage) {
         text += `
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> 𝐂𝐑𝐄𝐀𝐓𝐄𝐑: Muzamil Khan`;
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
 
         await sock.sendMessage(ownerNumber, {
             text,

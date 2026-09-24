@@ -57,7 +57,7 @@ async function mediafireCommand(sock, chatId, message) {
 ┃ ❍ Example : .mediafire https://www.mediafire.com/file/xxxxx
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -71,7 +71,7 @@ async function mediafireCommand(sock, chatId, message) {
 ┃ ❍ Please check and try again
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -100,7 +100,7 @@ async function mediafireCommand(sock, chatId, message) {
 ┃ ❍ File might be private or deleted
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -120,7 +120,7 @@ async function mediafireCommand(sock, chatId, message) {
 ┃ ❍ Try again with a different link
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -134,7 +134,7 @@ async function mediafireCommand(sock, chatId, message) {
 ┃ ❍ Status : Downloading...
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`;
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
 
         await sock.sendMessage(chatId, {
             text: infoCaption
@@ -178,7 +178,7 @@ async function mediafireCommand(sock, chatId, message) {
 ┃ ❍ Status : Sent ✅${sizeWarning}
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`;
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
 
             await sock.sendMessage(chatId, {
                 document: { url: dlLink },
@@ -208,7 +208,7 @@ async function mediafireCommand(sock, chatId, message) {
 ┃ ❍ ${dlLink}
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
         }
 
@@ -232,7 +232,7 @@ async function mediafireCommand(sock, chatId, message) {
 ┃ ❍ Please try again later
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; MUZAMIL-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
         }, { quoted: message });
     }
 }

@@ -3,7 +3,7 @@ const { getSessionSettings } = require('../lib/session_data');
 
 async function helpCommand(sock, chatId, message) {
     const sessionSettings = getSessionSettings(sock);
-    // Add reaction to the message
+    
     await sock.sendMessage(chatId, {
         react: {
             text: '📄',
@@ -12,265 +12,273 @@ async function helpCommand(sock, chatId, message) {
     });
 
     const helpMessage = `
-╭━━━〔 👤 *${sock.botname || 'MUZAMIL-XD'}* 〕━━━┈⊷
-┃ ❍ Version  : ${settings.version || '3.0.7'}
-┃ ❍ Owner    : ${sessionSettings.ownerName}
-┃ ❍ YouTube  : ${global.ytch || 'TeamRedXhackers'}
-┃ ❍ Commands : All available commands
-╰━━━━━━━━━━━━━━━━┈⊷
+╭━━━━━━━━━━━━━━━━━━━━━╮
+┃   𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋 🚩
+┃  ᴍᴜʟᴛɪ-ᴅᴇᴠɪᴄᴇ ᴡᴀ ʙᴏᴛ
+╰━━━━━━━━━━━━━━━━━━━━━╯
 
-╭━━━〔 🌐 *GENERAL MENU* 〕━━━┈⊷
-┃ ❍ .help / .menu
-┃ ❍ .ping
-┃ ❍ .alive
-┃ ❍ .tts [text]
-┃ ❍ .owner
-┃ ❍ .joke
-┃ ❍ .quote
-┃ ❍ .fact
-┃ ❍ .weather [city]
-┃ ❍ .news
-┃ ❍ .attp [text]
-┃ ❍ .lyrics [song]
-┃ ❍ .8ball [question]
-┃ ❍ .groupinfo
-┃ ❍ .staff / .admins
-┃ ❍ .vv
-┃ ❍ .trt [text] [lang]
-┃ ❍ .ss [link]
-┃ ❍ .jid
-┃ ❍ .url
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 👤 ʙᴏᴛ ɪɴғᴏ 〕┈──⊷
+┋⋄ ➠ ᴠᴇʀsɪᴏɴ : ${settings.version || '3.0.7'}
+┋⋄ ➠ ᴏᴡɴᴇʀ : ${sessionSettings.ownerName}
+┋⋄ ➠ ʏᴏᴜᴛᴜʙᴇ : ${global.ytch || 'TeamRedXhackers'}
+╰─────────────────────⊷
 
-╭━━━〔 🔍 *SEARCH MENU* 〕━━━┈⊷
-┃ ❍ .truecaller [number]
-┃ ❍ .simdata [number/cnic]
-┃ ❍ .apk [app name]
-┃ ❍ .github / .git / .repo
-┃ ❍ .fetch <website>
-┃ ❍ .fetchapi <website>
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 🌐 ɢᴇɴᴇʀᴀʟ ᴍᴇɴᴜ 〕┈──⊷
+┋⋄ ➠ .ʜᴇʟᴘ / .ᴍᴇɴᴜ
+┋⋄ ➠ .ᴘɪɴɢ
+┋⋄ ➠ .ᴀʟɪᴠᴇ
+┋⋄ ➠ .ᴛᴛs [ᴛᴇxᴛ]
+┋⋄ ➠ .ᴏᴡɴᴇʀ
+┋⋄ ➠ .ᴊᴏᴋᴇ
+┋⋄ ➠ .ǫᴜᴏᴛᴇ
+┋⋄ ➠ .ғᴀᴄᴛ
+┋⋄ ➠ .ᴡᴇᴀᴛʜᴇʀ [ᴄɪᴛʏ]
+┋⋄ ➠ .ɴᴇᴡs
+┋⋄ ➠ .ᴀᴛᴛᴘ [ᴛᴇxᴛ]
+┋⋄ ➠ .ʟʏʀɪᴄs [sᴏɴɢ]
+┋⋄ ➠ .8ʙᴀʟʟ [ǫᴜᴇsᴛɪᴏɴ]
+┋⋄ ➠ .ɢʀᴏᴜᴘɪɴғᴏ
+┋⋄ ➠ .sᴛᴀғғ / .ᴀᴅᴍɪɴs
+┋⋄ ➠ .ᴠᴠ
+┋⋄ ➠ .ᴛʀᴛ [ᴛᴇxᴛ] [ʟᴀɴɢ]
+┋⋄ ➠ .ss [ʟɪɴᴋ]
+┋⋄ ➠ .ᴊɪᴅ
+┋⋄ ➠ .ᴜʀʟ
+╰─────────────────────⊷
 
-╭━━━〔 👮 *ADMIN MENU* 〕━━━┈⊷
-┃ ❍ .ban @user
-┃ ❍ .unban @user
-┃ ❍ .promote @user
-┃ ❍ .demote @user
-┃ ❍ .mute [minutes]
-┃ ❍ .unmute
-┃ ❍ .delete / .del
-┃ ❍ .kick @user
-┃ ❍ .warnings @user
-┃ ❍ .warn @user
-┃ ❍ .antilink [on/off]
-┃ ❍ .antitag [on/off]
-┃ ❍ .antibadword [on/off]
-┃ ❍ .antibadwordingset [delete/kick/warn]
-┃ ❍ .chatbot [on/off]
-┃ ❍ .welcome [on/off]
-┃ ❍ .goodbye [on/off]
-┃ ❍ .clear
-┃ ❍ .tag [message]
-┃ ❍ .tagall
-┃ ❍ .tagnotadmin
-┃ ❍ .hidetag [message]
-┃ ❍ .resetlink
-┃ ❍ .setgdesc [description]
-┃ ❍ .setgname [name]
-┃ ❍ .setgpp [reply image]
-┃ ❍ .getpp [number/reply]
-┃ ❍ .gcstatus [reply media/text]
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 🔍 sᴇᴀʀᴄʜ ᴍᴇɴᴜ 〕┈──⊷
+┋⋄ ➠ .ᴛʀᴜᴇᴄᴀʟʟᴇʀ [ɴᴜᴍʙᴇʀ]
+┋⋄ ➠ .sɪᴍᴅᴀᴛᴀ [ɴᴜᴍʙᴇʀ/ᴄɴɪᴄ]
+┋⋄ ➠ .ᴀᴘᴋ [ᴀᴘᴘ ɴᴀᴍᴇ]
+┋⋄ ➠ .ɢɪᴛʜᴜʙ / .ɢɪᴛ / .ʀᴇᴘᴏ
+┋⋄ ➠ .ғᴇᴛᴄʜ <ᴡᴇʙsɪᴛᴇ>
+┋⋄ ➠ .ғᴇᴛᴄʜᴀᴘɪ <ᴡᴇʙsɪᴛᴇ>
+┋⋄ ➠ .sᴇᴀʀᴄʜɪᴍɢ <ɴᴀᴍᴇ>
+┋⋄ ➠ .ᴍᴇᴅɪᴀғɪʀᴇ <ʟɪɴᴋ>
+╰─────────────────────⊷
 
-╭━━━〔 🔒 *OWNER MENU* 〕━━━┈⊷
-┃ ❍ .mode [public/private]
-┃ ❍ .botname [name]
-┃ ❍ .botdp [image URL]
-┃ ❍ .ownernumber [number]
-┃ ❍ .ownername [name]
-┃ ❍ .description [text]
-┃ ❍ .clearsession
-┃ ❍ .antidelete [on/off]
-┃ ❍ .cleartmp
-┃ ❍ .update
-┃ ❍ .settings
-┃ ❍ .setpp [reply image]
-┃ ❍ .autoreact [on/off]
-┃ ❍ .autostatus [on/off]
-┃ ❍ .autotyping [on/off]
-┃ ❍ .autoread [on/off]
-┃ ❍ .indicator [on/off]
-┃ ❍ .indicatorset [blue/white/null]
-┃ ❍ .selfchat [on/off]
-┃ ❍ .selfchatset [group/inbox]
-┃ ❍ .anticall [on/off]
-┃ ❍ .pmblocker [on/off]
-┃ ❍ .mention [on/off]
-┃ ❍ .setmention [reply msg]
-┃ ❍ .sudo [add/remove]
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 👮 ᴀᴅᴍɪɴ ᴍᴇɴᴜ 〕┈──⊷
+┋⋄ ➠ .ʙᴀɴ @ᴜsᴇʀ
+┋⋄ ➠ .ᴜɴʙᴀɴ @ᴜsᴇʀ
+┋⋄ ➠ .ᴘʀᴏᴍᴏᴛᴇ @ᴜsᴇʀ
+┋⋄ ➠ .ᴅᴇᴍᴏᴛᴇ @ᴜsᴇʀ
+┋⋄ ➠ .ᴍᴜᴛᴇ [ᴍɪɴᴜᴛᴇs]
+┋⋄ ➠ .ᴜɴᴍᴜᴛᴇ
+┋⋄ ➠ .ᴅᴇʟᴇᴛᴇ / .ᴅᴇʟ
+┋⋄ ➠ .ᴋɪᴄᴋ @ᴜsᴇʀ
+┋⋄ ➠ .ᴡᴀʀɴɪɴɢs @ᴜsᴇʀ
+┋⋄ ➠ .ᴡᴀʀɴ @ᴜsᴇʀ
+┋⋄ ➠ .ᴀɴᴛɪʟɪɴᴋ [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .ᴀɴᴛɪᴛᴀɢ [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .ᴀɴᴛɪʙᴀᴅᴡᴏʀᴅ [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .ᴄʜᴀᴛʙᴏᴛ [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .ᴡᴇʟᴄᴏᴍᴇ [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .ɢᴏᴏᴅʙʏᴇ [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .ᴄʟᴇᴀʀ
+┋⋄ ➠ .ᴛᴀɢ [ᴍᴇssᴀɢᴇ]
+┋⋄ ➠ .ᴛᴀɢᴀʟʟ
+┋⋄ ➠ .ᴛᴀɢɴᴏᴛᴀᴅᴍɪɴ
+┋⋄ ➠ .ʜɪᴅᴇᴛᴀɢ [ᴍᴇssᴀɢᴇ]
+┋⋄ ➠ .ʀᴇsᴇᴛʟɪɴᴋ
+┋⋄ ➠ .sᴇᴛɢᴅᴇsᴄ [ᴅᴇsᴄʀɪᴘᴛɪᴏɴ]
+┋⋄ ➠ .sᴇᴛɢɴᴀᴍᴇ [ɴᴀᴍᴇ]
+┋⋄ ➠ .sᴇᴛɢᴘᴘ [ʀᴇᴘʟʏ ɪᴍᴀɢᴇ]
+┋⋄ ➠ .ɢᴇᴛᴘᴘ [ɴᴜᴍʙᴇʀ/ʀᴇᴘʟʏ]
+┋⋄ ➠ .ɢᴄsᴛᴀᴛᴜs [ʀᴇᴘʟʏ ᴍᴇᴅɪᴀ/ᴛᴇxᴛ]
+┋⋄ ➠ .ᴀᴅᴅsᴏs @ᴀᴅᴍɪɴ
+┋⋄ ➠ .ᴅᴇʟsᴏs @ᴀᴅᴍɪɴ
+╰─────────────────────⊷
 
-╭━━━〔 🎨 *STICKER MENU* 〕━━━┈⊷
-┃ ❍ .sticker / .s
-┃ ❍ .simage [reply sticker]
-┃ ❍ .take [packname]
-┃ ❍ .emojimix [emj1+emj2]
-┃ ❍ .tgsticker [link]
-┃ ❍ .crop [reply image]
-┃ ❍ .blur [image]
-┃ ❍ .removebg
-┃ ❍ .remini
-┃ ❍ .meme
-┃ ❍ .igs [insta link]
-┃ ❍ .igsc [insta link]
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 🔒 ᴏᴡɴᴇʀ ᴍᴇɴᴜ 〕┈──⊷
+┋⋄ ➠ .ᴍᴏᴅᴇ [ᴘᴜʙʟɪᴄ/ᴘʀɪᴠᴀᴛᴇ]
+┋⋄ ➠ .ʙᴏᴛɴᴀᴍᴇ [ɴᴀᴍᴇ]
+┋⋄ ➠ .ʙᴏᴛᴅᴘ [ɪᴍᴀɢᴇ ᴜʀʟ]
+┋⋄ ➠ .ᴏᴡɴᴇʀɴᴜᴍʙᴇʀ [ɴᴜᴍʙᴇʀ]
+┋⋄ ➠ .ᴏᴡɴᴇʀɴᴀᴍᴇ [ɴᴀᴍᴇ]
+┋⋄ ➠ .ᴅᴇsᴄʀɪᴘᴛɪᴏɴ [ᴛᴇxᴛ]
+┋⋄ ➠ .ᴄʟᴇᴀʀsᴇssɪᴏɴ
+┋⋄ ➠ .ᴀɴᴛɪᴅᴇʟᴇᴛᴇ [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .ᴄʟᴇᴀʀᴛᴍᴘ
+┋⋄ ➠ .ᴜᴘᴅᴀᴛᴇ
+┋⋄ ➠ .sᴇᴛᴛɪɴɢs
+┋⋄ ➠ .sᴇᴛᴘᴘ [ʀᴇᴘʟʏ ɪᴍᴀɢᴇ]
+┋⋄ ➠ .ᴀᴜᴛᴏʀᴇᴀᴄᴛ [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .ᴀᴜᴛᴏsᴛᴀᴛᴜs [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .ᴀᴜᴛᴏᴛʏᴘɪɴɢ [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .ᴀᴜᴛᴏʀᴇᴀᴅ [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .ɪɴᴅɪᴄᴀᴛᴏʀ [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .sᴇʟғᴄʜᴀᴛ [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .ᴀɴᴛɪᴄᴀʟʟ [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .ᴘᴍʙʟᴏᴄᴋᴇʀ [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .ᴍᴇɴᴛɪᴏɴ [ᴏɴ/ᴏғғ]
+┋⋄ ➠ .sᴇᴛᴍᴇɴᴛɪᴏɴ [ʀᴇᴘʟʏ ᴍsɢ]
+┋⋄ ➠ .sᴜᴅᴏ [ᴀᴅᴅ/ʀᴇᴍᴏᴠᴇ]
+╰─────────────────────⊷
 
-╭━━━〔 🖼️ *PIES MENU* 〕━━━┈⊷
-┃ ❍ .pies [country]
-┃ ❍ .china
-┃ ❍ .indonesia
-┃ ❍ .japan
-┃ ❍ .korea
-┃ ❍ .hijab
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 🎨 sᴛɪᴄᴋᴇʀ ᴍᴇɴᴜ 〕┈──⊷
+┋⋄ ➠ .sᴛɪᴄᴋᴇʀ / .s
+┋⋄ ➠ .sɪᴍᴀɢᴇ [ʀᴇᴘʟʏ sᴛɪᴄᴋᴇʀ]
+┋⋄ ➠ .ᴛᴀᴋᴇ [ᴘᴀᴄᴋɴᴀᴍᴇ]
+┋⋄ ➠ .ᴇᴍᴏᴊɪᴍɪx [ᴇᴍᴊ1+ᴇᴍᴊ2]
+┋⋄ ➠ .ᴛɢsᴛɪᴄᴋᴇʀ [ʟɪɴᴋ]
+┋⋄ ➠ .ᴄʀᴏᴘ [ʀᴇᴘʟʏ ɪᴍᴀɢᴇ]
+┋⋄ ➠ .ʙʟᴜʀ [ɪᴍᴀɢᴇ]
+┋⋄ ➠ .ʀᴇᴍᴏᴠᴇʙɢ
+┋⋄ ➠ .ʀᴇᴍɪɴɪ
+┋⋄ ➠ .ᴍᴇᴍᴇ
+┋⋄ ➠ .ɪɢs [ɪɴsᴛᴀ ʟɪɴᴋ]
+┋⋄ ➠ .ɪɢsᴄ [ɪɴsᴛᴀ ʟɪɴᴋ]
+╰─────────────────────⊷
 
-╭━━━〔 🎮 *GAME MENU* 〕━━━┈⊷
-┃ ❍ .tictactoe @user
-┃ ❍ .hangman
-┃ ❍ .guess [letter]
-┃ ❍ .trivia
-┃ ❍ .answer [answer]
-┃ ❍ .truth
-┃ ❍ .dare
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 🖼️ ᴘɪᴇs ᴍᴇɴᴜ 〕┈──⊷
+┋⋄ ➠ .ᴘɪᴇs [ᴄᴏᴜɴᴛʀʏ]
+┋⋄ ➠ .ᴄʜɪɴᴀ
+┋⋄ ➠ .ɪɴᴅᴏɴᴇsɪᴀ
+┋⋄ ➠ .ᴊᴀᴘᴀɴ
+┋⋄ ➠ .ᴋᴏʀᴇᴀ
+┋⋄ ➠ .ʜɪᴊᴀʙ
+╰─────────────────────⊷
 
-╭━━━〔 🤖 *AI MENU* 〕━━━┈⊷
-┃ ❍ .gpt [question]
-┃ ❍ .gemini [question]
-┃ ❍ .imagine [prompt]
-┃ ❍ .flux [prompt]
-┃ ❍ .sora [prompt]
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 🎮 ɢᴀᴍᴇ ᴍᴇɴᴜ 〕┈──⊷
+┋⋄ ➠ .ᴛɪᴄᴛᴀᴄᴛᴏᴇ @ᴜsᴇʀ
+┋⋄ ➠ .ʜᴀɴɢᴍᴀɴ
+┋⋄ ➠ .ɢᴜᴇss [ʟᴇᴛᴛᴇʀ]
+┋⋄ ➠ .ᴛʀɪᴠɪᴀ
+┋⋄ ➠ .ᴀɴsᴡᴇʀ [ᴀɴsᴡᴇʀ]
+┋⋄ ➠ .ᴛʀᴜᴛʜ
+┋⋄ ➠ .ᴅᴀʀᴇ
+╰─────────────────────⊷
 
-╭━━━〔 🎯 *FUN MENU* 〕━━━┈⊷
-┃ ❍ .compliment @user
-┃ ❍ .insult @user
-┃ ❍ .flirt
-┃ ❍ .shayari
-┃ ❍ .goodnight
-┃ ❍ .roseday
-┃ ❍ .character @user
-┃ ❍ .wasted @user
-┃ ❍ .ship @user
-┃ ❍ .simp @user
-┃ ❍ .stupid @user [text]
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 🤖 ᴀɪ ᴍᴇɴᴜ 〕┈──⊷
+┋⋄ ➠ .ɢᴘᴛ [ǫᴜᴇsᴛɪᴏɴ]
+┋⋄ ➠ .ɢᴇᴍɪɴɪ [ǫᴜᴇsᴛɪᴏɴ]
+┋⋄ ➠ .ɪᴍᴀɢɪɴᴇ [ᴘʀᴏᴍᴘᴛ]
+┋⋄ ➠ .ғʟᴜx [ᴘʀᴏᴍᴘᴛ]
+┋⋄ ➠ .sᴏʀᴀ [ᴘʀᴏᴍᴘᴛ]
+╰─────────────────────⊷
 
-╭━━━〔 🔤 *TEXTMAKER MENU* 〕━━━┈⊷
-┃ ❍ .metallic [text]
-┃ ❍ .ice [text]
-┃ ❍ .snow [text]
-┃ ❍ .impressive [text]
-┃ ❍ .matrix [text]
-┃ ❍ .light [text]
-┃ ❍ .neon [text]
-┃ ❍ .devil [text]
-┃ ❍ .purple [text]
-┃ ❍ .thunder [text]
-┃ ❍ .leaves [text]
-┃ ❍ .1917 [text]
-┃ ❍ .arena [text]
-┃ ❍ .hacker [text]
-┃ ❍ .sand [text]
-┃ ❍ .blackpink [text]
-┃ ❍ .glitch [text]
-┃ ❍ .fire [text]
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 🎯 ғᴜɴ ᴍᴇɴᴜ 〕┈──⊷
+┋⋄ ➠ .ᴄᴏᴍᴘʟɪᴍᴇɴᴛ @ᴜsᴇʀ
+┋⋄ ➠ .ɪɴsᴜʟᴛ @ᴜsᴇʀ
+┋⋄ ➠ .ғʟɪʀᴛ
+┋⋄ ➠ .sʜᴀʏᴀʀɪ
+┋⋄ ➠ .ɢᴏᴏᴅɴɪɢʜᴛ
+┋⋄ ➠ .ʀᴏsᴇᴅᴀʏ
+┋⋄ ➠ .ᴄʜᴀʀᴀᴄᴛᴇʀ @ᴜsᴇʀ
+┋⋄ ➠ .ᴡᴀsᴛᴇᴅ @ᴜsᴇʀ
+┋⋄ ➠ .sʜɪᴘ @ᴜsᴇʀ
+┋⋄ ➠ .sɪᴍᴘ @ᴜsᴇʀ
+┋⋄ ➠ .sᴛᴜᴘɪᴅ @ᴜsᴇʀ [ᴛᴇxᴛ]
+╰─────────────────────⊷
 
-╭━━━〔 📥 *DOWNLOADER MENU* 〕━━━┈⊷
-┃ ❍ .play [song]
-┃ ❍ .song [song]
-┃ ❍ .spotify [query]
-┃ ❍ .instagram [link]
-┃ ❍ .facebook [link]
-┃ ❍ .tiktok [link]
-┃ ❍ .video [name]
-┃ ❍ .ytmp4 [link]
-┃ ❍ .yts <videoname>
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 🔤 ᴛᴇxᴛᴍᴀᴋᴇʀ ᴍᴇɴᴜ 〕┈──⊷
+┋⋄ ➠ .ᴍᴇᴛᴀʟʟɪᴄ [ᴛᴇxᴛ]
+┋⋄ ➠ .ɪᴄᴇ [ᴛᴇxᴛ]
+┋⋄ ➠ .sɴᴏᴡ [ᴛᴇxᴛ]
+┋⋄ ➠ .ɪᴍᴘʀᴇssɪᴠᴇ [ᴛᴇxᴛ]
+┋⋄ ➠ .ᴍᴀᴛʀɪx [ᴛᴇxᴛ]
+┋⋄ ➠ .ʟɪɢʜᴛ [ᴛᴇxᴛ]
+┋⋄ ➠ .ɴᴇᴏɴ [ᴛᴇxᴛ]
+┋⋄ ➠ .ᴅᴇᴠɪʟ [ᴛᴇxᴛ]
+┋⋄ ➠ .ᴘᴜʀᴘʟᴇ [ᴛᴇxᴛ]
+┋⋄ ➠ .ᴛʜᴜɴᴅᴇʀ [ᴛᴇxᴛ]
+┋⋄ ➠ .ʟᴇᴀᴠᴇs [ᴛᴇxᴛ]
+┋⋄ ➠ .1917 [ᴛᴇxᴛ]
+┋⋄ ➠ .ᴀʀᴇɴᴀ [ᴛᴇxᴛ]
+┋⋄ ➠ .ʜᴀᴄᴋᴇʀ [ᴛᴇxᴛ]
+┋⋄ ➠ .sᴀɴᴅ [ᴛᴇxᴛ]
+┋⋄ ➠ .ʙʟᴀᴄᴋᴘɪɴᴋ [ᴛᴇxᴛ]
+┋⋄ ➠ .ɢʟɪᴛᴄʜ [ᴛᴇxᴛ]
+┋⋄ ➠ .ғɪʀᴇ [ᴛᴇxᴛ]
+╰─────────────────────⊷
 
-╭━━━〔 🧩 *MISC MENU* 〕━━━┈⊷
-┃ ❍ .heart
-┃ ❍ .horny
-┃ ❍ .circle
-┃ ❍ .lgbt
-┃ ❍ .lolice
-┃ ❍ .its-so-stupid
-┃ ❍ .namecard
-┃ ❍ .oogway
-┃ ❍ .tweet
-┃ ❍ .ytcomment
-┃ ❍ .comrade
-┃ ❍ .gay
-┃ ❍ .glass
-┃ ❍ .jail
-┃ ❍ .passed
-┃ ❍ .triggered
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 📥 ᴅᴏᴡɴʟᴏᴀᴅ ᴍᴇɴᴜ 〕┈──⊷
+┋⋄ ➠ .ᴘʟᴀʏ [sᴏɴɢ]
+┋⋄ ➠ .sᴏɴɢ [sᴏɴɢ]
+┋⋄ ➠ .sᴘᴏᴛɪғʏ [ǫᴜᴇʀʏ]
+┋⋄ ➠ .ɪɴsᴛᴀɢʀᴀᴍ [ʟɪɴᴋ]
+┋⋄ ➠ .ғᴀᴄᴇʙᴏᴏᴋ [ʟɪɴᴋ]
+┋⋄ ➠ .ᴛɪᴋᴛᴏᴋ [ʟɪɴᴋ]
+┋⋄ ➠ .ᴠɪᴅᴇᴏ [ɴᴀᴍᴇ]
+┋⋄ ➠ .ʏᴛᴍᴘ4 [ʟɪɴᴋ]
+┋⋄ ➠ .ʏᴛs <ᴠɪᴅᴇᴏɴᴀᴍᴇ>
+╰─────────────────────⊷
 
-╭━━━〔 🖼️ *ANIME MENU* 〕━━━┈⊷
-┃ ❍ .nom
-┃ ❍ .poke
-┃ ❍ .cry
-┃ ❍ .kiss
-┃ ❍ .pat
-┃ ❍ .hug
-┃ ❍ .wink
-┃ ❍ .facepalm
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 🧩 ᴍɪsᴄ ᴍᴇɴᴜ 〕┈──⊷
+┋⋄ ➠ .ʜᴇᴀʀᴛ
+┋⋄ ➠ .ʜᴏʀɴʏ
+┋⋄ ➠ .ᴄɪʀᴄʟᴇ
+┋⋄ ➠ .ʟɢʙᴛ
+┋⋄ ➠ .ʟᴏʟɪᴄᴇ
+┋⋄ ➠ .ɪᴛs-sᴏ-sᴛᴜᴘɪᴅ
+┋⋄ ➠ .ɴᴀᴍᴇᴄᴀʀᴅ
+┋⋄ ➠ .ᴏᴏɢᴡᴀʏ
+┋⋄ ➠ .ᴛᴡᴇᴇᴛ
+┋⋄ ➠ .ʏᴛᴄᴏᴍᴍᴇɴᴛ
+┋⋄ ➠ .ᴄᴏᴍʀᴀᴅᴇ
+┋⋄ ➠ .ɢᴀʏ
+┋⋄ ➠ .ɢʟᴀss
+┋⋄ ➠ .ᴊᴀɪʟ
+┋⋄ ➠ .ᴘᴀssᴇᴅ
+┋⋄ ➠ .ᴛʀɪɢɢᴇʀᴇᴅ
+╰─────────────────────⊷
 
-╭━━━〔 💻 *GITHUB MENU* 〕━━━┈⊷
-┃ ❍ .git
-┃ ❍ .github
-┃ ❍ .sc
-┃ ❍ .script
-┃ ❍ .repo
-╰━━━━━━━━━━━━━━━━┈⊷
+╭┈──〔 🖼️ ᴀɴɪᴍᴇ ᴍᴇɴᴜ 〕┈──⊷
+┋⋄ ➠ .ɴᴏᴍ
+┋⋄ ➠ .ᴘᴏᴋᴇ
+┋⋄ ➠ .ᴄʀʏ
+┋⋄ ➠ .ᴋɪss
+┋⋄ ➠ .ᴘᴀᴛ
+┋⋄ ➠ .ʜᴜɢ
+┋⋄ ➠ .ᴡɪɴᴋ
+┋⋄ ➠ .ғᴀᴄᴇᴘᴀʟᴍ
+╰─────────────────────⊷
 
-> 𝐂𝐑𝐄𝐀𝐓𝐄𝐑: ${sessionSettings.ownerName}
-┃ ❍ About    : ${sessionSettings.description}`;
+╭┈──〔 💻 ɢɪᴛʜᴜʙ ᴍᴇɴᴜ 〕┈──⊷
+┋⋄ ➠ .ɢɪᴛ
+┋⋄ ➠ .ɢɪᴛʜᴜʙ
+┋⋄ ➠ .sᴄ
+┋⋄ ➠ .sᴄʀɪᴘᴛ
+┋⋄ ➠ .ʀᴇᴘᴏ
+╰─────────────────────⊷
+
+╭━━━━━━━━━━━━━━━━━━━━━╮
+┃   👤 ᴄʀᴇᴀᴛᴏʀ
+┃   ${sessionSettings.ownerName}
+┃
+┃   📝 ᴀʙᴏᴜᴛ
+┃   ${sessionSettings.description}
+╰━━━━━━━━━━━━━━━━━━━━━╯
+
+      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
 
     try {
         const imageUrl = typeof sock.botImageUrl === 'string'
             ? sock.botImageUrl.trim()
             : (typeof global.botImageUrl === 'string' ? global.botImageUrl.trim() : '');
 
+        const channelInfo = {
+            contextInfo: {
+                forwardingScore: 1,
+                isForwarded: true,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: '120363426106687970@newsletter',
+                    newsletterName: '𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋',
+                    serverMessageId: -1
+                }
+            }
+        };
+
         if (imageUrl) {
             await sock.sendMessage(chatId, {
                 image: { url: imageUrl },
                 caption: helpMessage,
-                contextInfo: {
-                    forwardingScore: 1,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363426106687970@newsletter',
-                        newsletterName: 'MUZAMIL-XD',
-                        serverMessageId: -1
-                    }
-                }
+                ...channelInfo
             }, { quoted: message });
         } else {
             await sock.sendMessage(chatId, { 
                 text: helpMessage,
-                contextInfo: {
-                    forwardingScore: 1,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363426106687970@newsletter',
-                        newsletterName: 'MUZAMIL-XD',
-                        serverMessageId: -1
-                    } 
-                }
+                ...channelInfo
             }, { quoted: message });
         }
     } catch (error) {

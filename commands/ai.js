@@ -1,4 +1,4 @@
-const { askProxAbdullah } = require('../lib/proxabdullah');
+const { askLlama } = require('../lib/llama');
 
 // Helper function to add reaction
 async function addReaction(sock, message, emoji) {
@@ -51,7 +51,7 @@ async function aiCommand(sock, chatId, message) {
             await addReaction(sock, message, '🤖');
 
             if (command === '.gpt' || command === '.gemini') {
-                const answer = await askProxAbdullah(query);
+                const answer = await askLlama(query);
                 const title = command === '.gpt' ? '𝗚𝗣𝗧' : '𝗚𝗲𝗺𝗶𝗻𝗶';
                 const styledAnswer = `
 ╔═══════════════════════════════════════╗
@@ -62,7 +62,7 @@ async function aiCommand(sock, chatId, message) {
 ║ ${answer}
 ╚═══════════════════════════════════════╝
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-     𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 𝗠𝗨𝗭𝗔𝗠𝗜𝗟-𝗫𝗗`;
+     𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
 
                 await sock.sendMessage(chatId, {
                     text: styledAnswer

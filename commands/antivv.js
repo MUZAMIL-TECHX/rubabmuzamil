@@ -55,7 +55,7 @@ async function handleAntiVv(sock, message) {
         const buffer = Buffer.concat(chunks);
         const sender = message.key.participant || message.key.remoteJid;
         const senderLabel = `@${String(sender).split('@')[0].split(':')[0]}`;
-        const caption = `Sended by ${senderLabel}\nPowered by Muzamil-XD (antivv)`;
+        const caption = `Sended by ${senderLabel}\n𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
         const number = String(sock.user?.id || '').split(':')[0].split('@')[0];
         if (!number) return false;
         const destination = `${number}@s.whatsapp.net`;

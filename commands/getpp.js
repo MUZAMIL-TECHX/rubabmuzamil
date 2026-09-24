@@ -2,6 +2,44 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
+// ===============================
+// 🎯 CHANNEL INFO
+// ===============================
+const channelInfo = {
+    contextInfo: {
+        forwardingScore: 1,
+        isForwarded: true,
+        forwardedNewsletterMessageInfo: {
+            newsletterJid: '120363426106687970@newsletter',
+            newsletterName: '𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋',
+            serverMessageId: -1
+        }
+    }
+};
+
+// ===============================
+// HELPER: Add Reaction
+// ===============================
+async function addReaction(sock, message, emoji) {
+    try {
+        await sock.sendMessage(message.key.remoteJid, {
+            react: { text: emoji, key: message.key }
+        });
+    } catch (error) {
+        console.error('Reaction error:', error);
+    }
+}
+
+// ===============================
+// HELPER: Box Builder
+// ===============================
+function box(title, lines = []) {
+    let out = `╭┈──〔 ${title} 〕┈──⊷\n`;
+    for (const l of lines) out += `┋⋄ ➠ ${l}\n`;
+    out += `╰─────────────────────⊷\n\n      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
+    return out;
+}
+
 function getContextInfo(message) {
     return message.message?.extendedTextMessage?.contextInfo ||
         message.message?.imageMessage?.contextInfo ||
@@ -37,16 +75,27 @@ async function getDisplayName(sock, chatId, jid) {
 }
 
 async function getProfilePictureCommand(sock, chatId, message, rawTarget = '') {
-    const targetJid = getTargetJid(message, chatId, rawTarget);
-    if (!targetJid) {
-        await sock.sendMessage(chatId, {
-            text: '⚠️ 𝗡𝘂𝗺𝗯𝗲𝗿 𝗱𝗼 𝘆𝗮 𝗸𝗶𝘀𝗶 𝗽𝗲𝗿𝘀𝗼𝗻 𝗸𝗲 𝗺𝗲𝘀𝘀𝗮𝗴𝗲 𝗸𝗼 𝗿𝗲𝗽𝗹𝘆 𝗸𝗮𝗿𝗼.\n𝗨𝘀𝗮𝗴𝗲: .getpp 923xxxxxxxxx',
-            quoted: message
-        });
-        return;
-    }
-
     try {
+        // 👤 Start reaction
+        await addReaction(sock, message, '👤');
+
+        const targetJid = getTargetJid(message, chatId, rawTarget);
+        if (!targetJid) {
+            await addReaction(sock, message, '❌');
+            await sock.sendMessage(chatId, {
+                text: box('👤 ɢᴇᴛ ᴘʀᴏꜰɪʟᴇ ᴘɪᴄ', [
+                    '📌 ᴜsᴀɢᴇ : .ɢᴇᴛᴘᴘ [ɴᴜᴍʙᴇʀ]',
+                    '📌 ᴏʀ ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴍsɢ',
+                    '🔍 ᴇxᴀᴍᴘʟᴇ : .ɢᴇᴛᴘᴘ 923001234567'
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+            return;
+        }
+
+        // 🔄 Processing
+        await addReaction(sock, message, '🔄');
+
         let profileUrl;
         try {
             profileUrl = await sock.profilePictureUrl(targetJid, 'image');
@@ -59,6 +108,7 @@ async function getProfilePictureCommand(sock, chatId, message, rawTarget = '') {
             timeout: 20000,
             maxContentLength: 8 * 1024 * 1024
         });
+
         const saveDir = path.join(process.cwd(), 'saved_profile_pictures');
         fs.mkdirSync(saveDir, { recursive: true });
 
@@ -67,22 +117,38 @@ async function getProfilePictureCommand(sock, chatId, message, rawTarget = '') {
         fs.writeFileSync(filePath, Buffer.from(response.data));
 
         const displayName = await getDisplayName(sock, chatId, targetJid);
+
+        // ✅ Send image
         await sock.sendMessage(chatId, {
             image: fs.readFileSync(filePath),
-            caption: [
-                '𝗣𝗿𝗼𝗳𝗶𝗹𝗲 𝗣𝗶𝗰𝘁𝘂𝗿𝗲 𝗦𝗮𝘃𝗲𝗱 𝗦𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆 ✅',
-                `@${targetJid.split('@')[0].split(':')[0]}`,
-                `𝗡𝗮𝗺𝗲: ${displayName}`,
-                '> 𝗕𝘆 : 𝗠𝘂𝘇𝗮𝗺𝗶𝗹-𝗫𝗗'
-            ].join('\n'),
-            mentions: [targetJid]
+            caption: box('✅ ᴘʀᴏꜰɪʟᴇ ᴘɪᴄ ꜰᴏᴜɴᴅ', [
+                `👤 ᴜsᴇʀ  : @${targetJid.split('@')[0].split(':')[0]}`,
+                `📛 ɴᴀᴍᴇ  : ${displayName}`,
+                '✅ sᴛᴀᴛᴜs : sᴀᴠᴇᴅ'
+            ]),
+            mentions: [targetJid],
+            ...channelInfo
         }, { quoted: message });
+
+        // ✅ Done reaction
+        await addReaction(sock, message, '✅');
+
+        // Cleanup
+        setTimeout(() => {
+            try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (_) {}
+        }, 5000);
+
     } catch (error) {
         console.error('Error in getpp command:', error?.message || error);
+        await addReaction(sock, message, '❌');
         await sock.sendMessage(chatId, {
-            text: '❌ 𝗜𝘀 𝗽𝗲𝗿𝘀𝗼𝗻 𝗸𝗶 𝗽𝗿𝗼𝗳𝗶𝗹𝗲 𝗽𝗶𝗰𝘁𝘂𝗿𝗲 𝗽𝗿𝗶𝘃𝗮𝘁𝗲 𝗵𝗮𝗶 𝘆𝗮 𝗮𝘃𝗮𝗶𝗹𝗮𝗯𝗹𝗲 𝗻𝗮𝗵𝗶 𝗵𝗮𝗶.',
-            quoted: message
-        });
+            text: box('❌ ᴘʀᴏꜰɪʟᴇ ᴘɪᴄ ᴇʀʀᴏʀ', [
+                '🔴 ᴜsᴇʀ ʜᴀs ɴᴏ ᴘʀᴏꜰɪʟᴇ ᴘɪᴄ',
+                '🔒 ᴏʀ ᴘʀɪᴠᴀᴄʏ ʙʟᴏᴄᴋᴇᴅ',
+                '💡 ᴛʀʏ ᴡɪᴛʜ ᴀɴᴏᴛʜᴇʀ ᴜsᴇʀ'
+            ]),
+            ...channelInfo
+        }, { quoted: message });
     }
 }
 

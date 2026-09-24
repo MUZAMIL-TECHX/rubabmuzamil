@@ -30,7 +30,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
 ┃ ❍ to use this command.
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; Muzamil-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
             return;
         }
@@ -51,7 +51,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
 ┃ ❍ .antilink get
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; Muzamil-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
             }, { quoted: message });
             return;
         }
@@ -69,7 +69,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
 ┃ ❍ Use    : .antilink off to disable
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; Muzamil-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
                     }, { quoted: message });
                     return;
                 }
@@ -83,7 +83,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
 ┃ ❍ Links  : Will be deleted
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; Muzamil-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
                     }, { quoted: message });
                 } else {
                     await sock.sendMessage(chatId, {
@@ -93,7 +93,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
 ┃ ❍ Please try again later
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; Muzamil-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
                     }, { quoted: message });
                 }
                 break;
@@ -109,7 +109,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
 ┃ ❍ Links  : Now allowed
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; Muzamil-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
                 }, { quoted: message });
                 break;
             }
@@ -125,7 +125,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
 ┃ ❍ .antilink set warn
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; Muzamil-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
                     }, { quoted: message });
                     return;
                 }
@@ -137,7 +137,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
 ┃ ❍ Choose: delete, kick, warn
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; Muzamil-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
                     }, { quoted: message });
                     return;
                 }
@@ -151,7 +151,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
 ┃ ❍ Antilink will now ${setAction}
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; Muzamil-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
                     }, { quoted: message });
                 } else {
                     await sock.sendMessage(chatId, {
@@ -161,7 +161,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
 ┃ ❍ Please try again later
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; Muzamil-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
                     }, { quoted: message });
                 }
                 break;
@@ -183,7 +183,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
 ┃ ❍ Action : ${actionEmoji} ${actionConfig?.action ? actionConfig.action.toUpperCase() : 'Not set'}
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; Muzamil-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
                 }, { quoted: message });
                 break;
             }
@@ -197,7 +197,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
 ┃ ❍ Available: on/off/set/get
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; Muzamil-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
                 }, { quoted: message });
             }
         }
@@ -211,7 +211,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
 ┃ ❍ Please try again later
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; Muzamil-XD`
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`
         }, { quoted: message });
     }
 }
@@ -275,7 +275,7 @@ async function handleLinkDetection(sock, chatId, message, userMessage, senderId)
 ┃ ❍ ${warningMessage}
 ╰━━━━━━━━━━━━━━━━┈⊷
 
-> By; Muzamil-XD`;
+> 𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
 
         await sock.sendMessage(chatId, { 
             text: styledWarning, 

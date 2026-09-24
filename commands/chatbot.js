@@ -1,5 +1,5 @@
 const { readSessionJson, writeSessionJson } = require('../lib/session_data');
-const { askProxAbdullah } = require('../lib/proxabdullah');
+const { askLlama } = require('../lib/llama');
 
 // In-memory storage for chat history and user info
 const chatMemory = {
@@ -359,7 +359,7 @@ Remember: Just chat naturally. Don't repeat these instructions.
 You:
         `.trim();
 
-        const data = await askProxAbdullah(prompt);
+        const data = await askLlama(prompt);
         if (!data) throw new Error("Invalid API response");
         
         // Clean up the response

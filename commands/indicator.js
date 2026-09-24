@@ -3,6 +3,21 @@ const path = require('path');
 const isOwnerOrSudo = require('../lib/isOwner');
 const { readSessionJson, writeSessionJson, BASE_DATA_DIR } = require('../lib/session_data');
 
+// ===============================
+// 🎯 CHANNEL INFO
+// ===============================
+const channelInfo = {
+    contextInfo: {
+        forwardingScore: 1,
+        isForwarded: true,
+        forwardedNewsletterMessageInfo: {
+            newsletterJid: '120363426106687970@newsletter',
+            newsletterName: '𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋',
+            serverMessageId: -1
+        }
+    }
+};
+
 const DEFAULT_CONFIG = {
     enabled: false,
     mode: 'white'
@@ -11,6 +26,29 @@ const DEFAULT_CONFIG = {
 const ROOT_CONFIG_PATH = path.join(BASE_DATA_DIR, 'indicator.json');
 const VALID_MODES = new Set(['blue', 'white', 'null']);
 const handledMessages = new WeakMap();
+
+// ===============================
+// HELPER: Add Reaction
+// ===============================
+async function addReaction(sock, message, emoji) {
+    try {
+        await sock.sendMessage(message.key.remoteJid, {
+            react: { text: emoji, key: message.key }
+        });
+    } catch (error) {
+        console.error('Reaction error:', error);
+    }
+}
+
+// ===============================
+// HELPER: Box Builder
+// ===============================
+function box(title, lines = []) {
+    let out = `╭┈──〔 ${title} 〕┈──⊷\n`;
+    for (const l of lines) out += `┋⋄ ➠ ${l}\n`;
+    out += `╰─────────────────────⊷\n\n      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
+    return out;
+}
 
 function normalizeConfig(value) {
     const config = value && typeof value === 'object' ? value : {};
@@ -31,9 +69,6 @@ function readRootConfig() {
 }
 
 function getConfig(sock) {
-    // Keep account settings isolated when a socket has a session directory,
-    // while also maintaining data/indicator.json as the canonical shipped
-    // config and fallback for the first/default socket.
     const sessionConfig = readSessionJson(sock, 'indicator.json', null);
     return normalizeConfig(sessionConfig || readRootConfig());
 }
@@ -41,10 +76,6 @@ function getConfig(sock) {
 function saveConfig(sock, config) {
     const normalized = normalizeConfig(config);
     writeSessionJson(sock, 'indicator.json', normalized);
-
-    // The root file is intentionally kept in sync so deployments that use
-    // the default data directory, panel-side tools, and newly created
-    // sessions all see the same setting.
     const temporary = `${ROOT_CONFIG_PATH}.tmp`;
     fs.mkdirSync(BASE_DATA_DIR, { recursive: true });
     fs.writeFileSync(temporary, JSON.stringify(normalized, null, 2) + '\n');
@@ -53,109 +84,169 @@ function saveConfig(sock, config) {
 }
 
 function helpText() {
-    return [
-        '╭━━━〔 ✅ 𝗜𝗡𝗗𝗜𝗖𝗔𝗧𝗢𝗥 〕━━━╮',
-        '┃',
-        '┃ ❍ .indicator on/off/status',
-        '┃ ❍ .indicatorset blue',
-        '┃ ❍ .indicatorset white',
-        '┃ ❍ .indicatorset null',
-        '┃',
-        '┃ 𝗕𝗹𝘂𝗲: message read / blue tick',
-        '┃ 𝗪𝗵𝗶𝘁𝗲: delivered / grey double tick',
-        '┃ 𝗡𝘂𝗹𝗹: no explicit read receipt',
-        '╰━━━━━━━━━━━━━━━━━━━━━━╯'
-    ].join('\n');
+    return box('📡 ɪɴᴅɪᴄᴀᴛᴏʀ ᴄᴏᴍᴍᴀɴᴅs', [
+        '📌 .ɪɴᴅɪᴄᴀᴛᴏʀ ᴏɴ/ᴏꜰꜰ/sᴛᴀᴛᴜs',
+        '📌 .ɪɴᴅɪᴄᴀᴛᴏʀsᴇᴛ ʙʟᴜᴇ',
+        '📌 .ɪɴᴅɪᴄᴀᴛᴏʀsᴇᴛ ᴡʜɪᴛᴇ',
+        '📌 .ɪɴᴅɪᴄᴀᴛᴏʀsᴇᴛ ɴᴜʟʟ',
+        '━━━━━━━━━━━━━━━━━━',
+        '🔵 ʙʟᴜᴇ  : ᴍᴇssᴀɢᴇ ʀᴇᴀᴅ / ʙʟᴜᴇ ᴛɪᴄᴋ',
+        '⚪ ᴡʜɪᴛᴇ : ᴅᴇʟɪᴠᴇʀᴇᴅ / ɢʀᴇʏ ᴛɪᴄᴋ',
+        '⚫ ɴᴜʟʟ  : ɴᴏ ʀᴇᴀᴅ ʀᴇᴄᴇɪᴘᴛ'
+    ]);
 }
 
 async function ensureOwner(sock, chatId, message) {
     const senderId = message.key.participant || message.key.remoteJid;
     const allowed = message.key.fromMe || await isOwnerOrSudo(senderId, sock, chatId);
     if (!allowed) {
+        await addReaction(sock, message, '⛔');
         await sock.sendMessage(chatId, {
-            text: '❌ 𝗧𝗵𝗶𝘀 𝗰𝗼𝗺𝗺𝗮𝗻𝗱 𝗶𝘀 𝗼𝗻𝗹𝘆 𝗳𝗼𝗿 𝘁𝗵𝗲 𝗼𝘄𝗻𝗲𝗿/𝘀𝘂𝗱𝗼.',
-            quoted: message
-        });
+            text: box('⛔ ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ', [
+                '🔴 ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ɪs ꜰᴏʀ ᴏᴡɴᴇʀ/sᴜᴅᴏ ᴏɴʟʏ'
+            ]),
+            ...channelInfo
+        }, { quoted: message });
     }
     return allowed;
 }
 
+// ===============================
+// MAIN COMMAND
+// ===============================
 async function indicatorCommand(sock, chatId, message, match = '') {
-    if (!await ensureOwner(sock, chatId, message)) return;
+    try {
+        await addReaction(sock, message, '📡');
 
-    const arg = String(match || '').trim().toLowerCase();
-    if (!arg || arg === 'status') {
-        const config = getConfig(sock);
-        if (arg === 'status') {
-            await sock.sendMessage(chatId, {
-                text: `📡 𝗜𝗻𝗱𝗶𝗰𝗮𝘁𝗼𝗿 𝗦𝘁𝗮𝘁𝘂𝘀\n❍ Status: ${config.enabled ? 'ON' : 'OFF'}\n❍ Mode: ${config.mode.toUpperCase()}\n❍ Blue: explicit read receipt / blue tick\n❍ White: no read receipt / grey double tick`,
-                quoted: message
-            });
+        if (!await ensureOwner(sock, chatId, message)) return;
+
+        const arg = String(match || '').trim().toLowerCase();
+
+        if (!arg || arg === 'status') {
+            const config = getConfig(sock);
+            if (arg === 'status') {
+                await addReaction(sock, message, '📊');
+                await sock.sendMessage(chatId, {
+                    text: box('📊 ɪɴᴅɪᴄᴀᴛᴏʀ sᴛᴀᴛᴜs', [
+                        `📌 sᴛᴀᴛᴜs : ${config.enabled ? '🟢 ᴏɴ' : '🔴 ᴏꜰꜰ'}`,
+                        `🎨 ᴍᴏᴅᴇ  : ${config.mode.toUpperCase()}`,
+                        '━━━━━━━━━━━━━━━━━━',
+                        '🔵 ʙʟᴜᴇ  : ʀᴇᴀᴅ ʀᴇᴄᴇɪᴘᴛ',
+                        '⚪ ᴡʜɪᴛᴇ : ɴᴏ ʀᴇᴀᴅ ʀᴇᴄᴇɪᴘᴛ',
+                        '⚫ ɴᴜʟʟ  : ɴᴏ ʀᴇᴄᴇɪᴘᴛ'
+                    ]),
+                    ...channelInfo
+                }, { quoted: message });
+                return;
+            }
+            await addReaction(sock, message, '📖');
+            await sock.sendMessage(chatId, { text: helpText(), ...channelInfo }, { quoted: message });
             return;
         }
-        await sock.sendMessage(chatId, { text: helpText(), quoted: message });
-        return;
-    }
 
-    const config = getConfig(sock);
-    if (arg === 'on' || arg === 'enable') {
-        config.enabled = true;
-        saveConfig(sock, config);
+        const config = getConfig(sock);
+
+        if (arg === 'on' || arg === 'enable') {
+            config.enabled = true;
+            saveConfig(sock, config);
+            await addReaction(sock, message, '✅');
+            await sock.sendMessage(chatId, {
+                text: box('✅ ɪɴᴅɪᴄᴀᴛᴏʀ ᴏɴ', [
+                    `🎨 ᴍᴏᴅᴇ : ${config.mode.toUpperCase()}`
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+            return;
+        }
+
+        if (arg === 'off' || arg === 'disable') {
+            config.enabled = false;
+            saveConfig(sock, config);
+            await addReaction(sock, message, '✅');
+            await sock.sendMessage(chatId, {
+                text: box('❌ ɪɴᴅɪᴄᴀᴛᴏʀ ᴏꜰꜰ', [
+                    '🔴 sᴛᴀᴛᴜs : ᴅɪsᴀʙʟᴇᴅ'
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+            return;
+        }
+
+        await addReaction(sock, message, '📖');
+        await sock.sendMessage(chatId, { text: helpText(), ...channelInfo }, { quoted: message });
+
+    } catch (error) {
+        console.error('Indicator command error:', error);
+        await addReaction(sock, message, '❌');
         await sock.sendMessage(chatId, {
-            text: `✅ 𝗜𝗻𝗱𝗶𝗰𝗮𝘁𝗼𝗿 𝗶𝘀 𝗻𝗼𝘄 𝗢𝗡\n❍ 𝗠𝗼𝗱𝗲: ${config.mode}`,
-            quoted: message
-        });
-        return;
+            text: box('❌ ᴇʀʀᴏʀ', [
+                `🔴 ${error.message || 'Something went wrong'}`
+            ]),
+            ...channelInfo
+        }, { quoted: message });
     }
-
-    if (arg === 'off' || arg === 'disable') {
-        config.enabled = false;
-        saveConfig(sock, config);
-        await sock.sendMessage(chatId, {
-            text: '✅ 𝗜𝗻𝗱𝗶𝗰𝗮𝘁𝗼𝗿 𝗶𝘀 𝗻𝗼𝘄 𝗢𝗙𝗙',
-            quoted: message
-        });
-        return;
-    }
-
-    await sock.sendMessage(chatId, { text: helpText(), quoted: message });
 }
 
 async function indicatorSetCommand(sock, chatId, message, match = '') {
-    if (!await ensureOwner(sock, chatId, message)) return;
+    try {
+        await addReaction(sock, message, '⚙️');
 
-    const mode = String(match || '').trim().toLowerCase().split(/\s+/)[0];
-    if (!VALID_MODES.has(mode)) {
+        if (!await ensureOwner(sock, chatId, message)) return;
+
+        const mode = String(match || '').trim().toLowerCase().split(/\s+/)[0];
+
+        if (!VALID_MODES.has(mode)) {
+            await addReaction(sock, message, '❌');
+            await sock.sendMessage(chatId, {
+                text: box('❌ ɪɴᴠᴀʟɪᴅ ᴍᴏᴅᴇ', [
+                    '📌 ᴜsᴇ : .ɪɴᴅɪᴄᴀᴛᴏʀsᴇᴛ ʙʟᴜᴇ',
+                    '📌 ᴜsᴇ : .ɪɴᴅɪᴄᴀᴛᴏʀsᴇᴛ ᴡʜɪᴛᴇ',
+                    '📌 ᴜsᴇ : .ɪɴᴅɪᴄᴀᴛᴏʀsᴇᴛ ɴᴜʟʟ'
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+            return;
+        }
+
+        const config = getConfig(sock);
+        config.mode = mode;
+        config.enabled = true;
+        saveConfig(sock, config);
+
+        const modeDesc = mode === 'blue'
+            ? 'ɪɴᴄᴏᴍɪɴɢ ᴍsɢs ᴡɪʟʟ ʙᴇ ᴍᴀʀᴋᴇᴅ ʀᴇᴀᴅ'
+            : mode === 'white'
+            ? 'ɪɴᴄᴏᴍɪɴɢ ᴍsɢs sᴛᴀʏ ᴅᴇʟɪᴠᴇʀᴇᴅ'
+            : 'ɴᴏ ʀᴇᴄᴇɪᴘᴛ ᴡɪʟʟ ʙᴇ sᴇɴᴛ';
+
+        await addReaction(sock, message, '✅');
         await sock.sendMessage(chatId, {
-            text: '❌ 𝗨𝘀𝗲: .indicatorset blue/white/null',
-            quoted: message
-        });
-        return;
-    }
+            text: box('✅ ɪɴᴅɪᴄᴀᴛᴏʀ ᴏɴ', [
+                `🎨 ᴍᴏᴅᴇ : ${mode.toUpperCase()}`,
+                `📝 ɪɴꜰᴏ : ${modeDesc}`
+            ]),
+            ...channelInfo
+        }, { quoted: message });
 
-    const config = getConfig(sock);
-    config.mode = mode;
-    // Selecting a mode is an explicit request to use the indicator. This
-    // avoids the confusing state where .indicatorset reports success but the
-    // feature remains disabled until a second command is sent.
-    config.enabled = true;
-    saveConfig(sock, config);
-    await sock.sendMessage(chatId, {
-        text: `✅ 𝗜𝗻𝗱𝗶𝗰𝗮𝘁𝗼𝗿 𝗶𝘀 𝗢𝗡\n❍ 𝗠𝗼𝗱𝗲: ${mode.toUpperCase()}\n❍ ${mode === 'blue' ? 'Incoming messages will be marked read (blue tick).' : 'Incoming messages will stay delivered (grey double tick).'}`,
-        quoted: message
-    });
+    } catch (error) {
+        console.error('Indicator set error:', error);
+        await addReaction(sock, message, '❌');
+        await sock.sendMessage(chatId, {
+            text: box('❌ ᴇʀʀᴏʀ', [`🔴 ${error.message || 'Something went wrong'}`]),
+            ...channelInfo
+        }, { quoted: message });
+    }
 }
 
-// Returns true when custom indicator settings are active, so the older
-// autoread feature cannot accidentally turn a white/null indicator blue.
+// ===============================
+// HANDLE INDICATOR
+// ===============================
 async function handleIndicator(sock, message) {
     try {
         const config = getConfig(sock);
         if (!config.enabled || message?.key?.fromMe) return false;
         if (!message?.key?.remoteJid || !message?.key?.id) return true;
 
-        // The same message may be delivered to the handler more than once.
-        // Avoid sending two read receipts for that message.
         const messageKey = [
             message.key.remoteJid,
             message.key.id,
@@ -180,12 +271,8 @@ async function handleIndicator(sock, message) {
         };
 
         if (config.mode === 'blue' && typeof sock.readMessages === 'function') {
-            // Read receipt: WhatsApp renders this as a blue tick.
             await sock.readMessages([receiptKey]);
         } else if (config.mode === 'white' && typeof sock.sendReceipt === 'function') {
-            // Delivery receipt: an omitted type is intentional in Baileys and
-            // produces the normal delivered/grey double tick without marking
-            // the message as read.
             await sock.sendReceipt(
                 receiptKey.remoteJid,
                 receiptKey.participant,
@@ -193,7 +280,6 @@ async function handleIndicator(sock, message) {
                 undefined
             );
         }
-        // Null deliberately sends no explicit receipt.
         return true;
     } catch (error) {
         console.error('⚠️ Indicator handling skipped:', error?.message || error);

@@ -1,28 +1,64 @@
 const axios = require('axios');
 
-async function apkCommand(sock, chatId, message, query) {
-    if (!query) {
-        await sock.sendMessage(
-            chatId,
-            {
-                text: '📱 *APK Downloader*\n\n' +
-                      'Usage:\n' +
-                      '.apk <app name>\n\n' +
-                      'Example:\n' +
-                      '.apk whatsapp\n' +
-                      '.apk facebook\n' +
-                      '.apk instagram'
-            },
-            { quoted: message }
-        );
-        return;
+// ===============================
+// 🎯 CHANNEL INFO
+// ===============================
+const channelInfo = {
+    contextInfo: {
+        forwardingScore: 1,
+        isForwarded: true,
+        forwardedNewsletterMessageInfo: {
+            newsletterJid: '120363426106687970@newsletter',
+            newsletterName: '𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋',
+            serverMessageId: -1
+        }
     }
+};
 
+// Helper function to add reaction
+async function addReaction(sock, message, emoji) {
     try {
+        await sock.sendMessage(message.key.remoteJid, {
+            react: {
+                text: emoji,
+                key: message.key
+            }
+        });
+    } catch (error) {
+        console.error('Reaction error:', error);
+    }
+}
+
+async function apkCommand(sock, chatId, message, query) {
+    try {
+        await addReaction(sock, message, '📱');
+
+        if (!query) {
+            await addReaction(sock, message, '❌');
+            await sock.sendMessage(
+                chatId,
+                {
+                    text: `
+╭┈──〔 📱 ᴀᴘᴋ ᴅᴏᴡɴʟᴏᴀᴅᴇʀ 〕┈──⊷
+┋⋄ ➠ 📌 ᴜsᴀɢᴇ : .ᴀᴘᴋ <ᴀᴘᴘ ɴᴀᴍᴇ>
+┋⋄ ➠ 🔍 ᴇxᴀᴍᴘʟᴇ : .ᴀᴘᴋ ᴡʜᴀᴛsᴀᴘᴘ
+┋⋄ ➠ 🔍 ᴇxᴀᴍᴘʟᴇ : .ᴀᴘᴋ ꜰᴀᴄᴇʙᴏᴏᴋ
+┋⋄ ➠ 🔍 ᴇxᴀᴍᴘʟᴇ : .ᴀᴘᴋ ɪɴsᴛᴀɢʀᴀᴍ
+╰─────────────────────⊷
+
+      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`,
+                    ...channelInfo
+                },
+                { quoted: message }
+            );
+            return;
+        }
+
+        await addReaction(sock, message, '🔄');
         await sock.sendPresenceUpdate('composing', chatId);
 
         const apiUrl = `http://ws75.aptoide.com/api/7/apps/search/query=${encodeURIComponent(query)}/limit=1`;
-        
+
         console.log(`[APK] Searching: ${query}`);
 
         const response = await axios.get(apiUrl, {
@@ -36,10 +72,20 @@ async function apkCommand(sock, chatId, message, query) {
         const data = response.data;
 
         if (!data || !data.datalist || !data.datalist.list || data.datalist.list.length === 0) {
+            await addReaction(sock, message, '❌');
             await sock.sendMessage(
                 chatId,
                 {
-                    text: `❌ *APK NOT FOUND*\n\n🔍 No results found for: *${query}*\n\n💡 Try:\n• Check spelling\n• Use shorter name\n• Example: .apk whatsapp`
+                    text: `
+╭┈──〔 ❌ ᴀᴘᴋ ɴᴏᴛ ꜰᴏᴜɴᴅ 〕┈──⊷
+┋⋄ ➠ 🔍 ɴᴏ ʀᴇsᴜʟᴛs ꜰᴏʀ : *${query}*
+┋⋄ ➠ 💡 ᴛʀʏ :
+┋⋄ ➠ ᴄʜᴇᴄᴋ sᴘᴇʟʟɪɴɢ
+┋⋄ ➠ ᴜsᴇ sʜᴏʀᴛᴇʀ ɴᴀᴍᴇ
+╰─────────────────────⊷
+
+      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`,
+                    ...channelInfo
                 },
                 { quoted: message }
             );
@@ -58,68 +104,79 @@ async function apkCommand(sock, chatId, message, query) {
             throw new Error('Download link not available');
         }
 
-        // Build download URL if path is relative
         let downloadUrl = appPath;
         if (!downloadUrl.startsWith('http')) {
             downloadUrl = `https://ws75.aptoide.com${downloadUrl}`;
         }
 
-        // Build stylish response
-        let caption = `❖━━━━━━━━━━━━━━━━━━━❖\n`;
-        caption += `╔═══❖•ೋ° 📱 °ೋ•❖═══╗\n`;
-        caption += `      𝗔𝗣𝗞 𝗜𝗻𝗳𝗼𝗿𝗺𝗮𝘁𝗶𝗼𝗻\n`;
-        caption += `╚═══❖•ೋ° 📱 °ೋ•❖═══╝\n`;
-        caption += `❖━━━━━━━━━━━━━━━━━━━❖\n\n`;
-        
-        caption += `┌─────────────────────┐\n`;
-        caption += `│ 👑 𝗡𝗮𝗺𝗲    : ${appName.toUpperCase()}\n`;
-        caption += `│ 📦 𝗣𝗮𝗰𝗸𝗮𝗴𝗲 : ${appPackage.toUpperCase()}\n`;
-        caption += `│ 📏 𝗦𝗶𝘇𝗲    : ${appSize} MB\n`;
-        caption += `│ 🔄 𝗩𝗲𝗿𝘀𝗶𝗼𝗻 : ${appVersion}\n`;
-        caption += `└─────────────────────┘\n\n`;
+        // ===============================
+        // 📱 APK INFO
+        // ===============================
+        if (parseFloat(appSize) > 95) {
+            const largeCaption = `
+╭┈──〔 📱 ᴀᴘᴋ ɪɴꜰᴏʀᴍᴀᴛɪᴏɴ 〕┈──⊷
+┋⋄ ➠ 👑 ɴᴀᴍᴇ    : ${appName.toUpperCase()}
+┋⋄ ➠ 📦 ᴘᴀᴄᴋᴀɢᴇ : ${appPackage.toUpperCase()}
+┋⋄ ➠ 📏 sɪᴢᴇ    : ${appSize} MB
+┋⋄ ➠ 🔄 ᴠᴇʀsɪᴏɴ : ${appVersion}
+╰─────────────────────⊷
 
-        // Check if file is too large for WhatsApp
-        if (parseFloat(appSize) > 95) { // 95MB to be safe
-            caption += `⚠️ *File too large for WhatsApp!*\n`;
-            caption += `📥 *Download Link:*\n${downloadUrl}\n\n`;
-            caption += `💡 Open this link in your browser to download.\n\n`;
-            caption += `❖━━━━━━━━━━━━━━━━━━━❖\n`;
-            caption += `  𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 𝗠𝘂𝘇𝗮𝗺𝗶𝗹-𝗫𝗗\n`;
-            caption += `❖━━━━━━━━━━━━━━━━━━━❖`;
+╭┈──〔 ⚠️ ꜰɪʟᴇ ᴛᴏᴏ ʟᴀʀɢᴇ 〕┈──⊷
+┋⋄ ➠ 🔴 ᴄᴀɴɴᴏᴛ sᴇɴᴅ ᴠɪᴀ ᴡʜᴀᴛsᴀᴘᴘ
+┋⋄ ➠ 💡 ᴜsᴇ ᴅᴏᴡɴʟᴏᴀᴅ ʟɪɴᴋ ʙᴇʟᴏᴡ
+╰─────────────────────⊷
 
-            // Send info with icon
+╭┈──〔 📥 ᴅᴏᴡɴʟᴏᴀᴅ ʟɪɴᴋ 〕┈──⊷
+┋⋄ ➠ ${downloadUrl}
+╰─────────────────────⊷
+
+      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
+
             if (appIcon) {
                 try {
                     await sock.sendMessage(
                         chatId,
                         {
                             image: { url: appIcon },
-                            caption: caption
+                            caption: largeCaption,
+                            ...channelInfo
                         },
                         { quoted: message }
                     );
                 } catch (imgError) {
                     await sock.sendMessage(
                         chatId,
-                        { text: caption },
+                        { text: largeCaption, ...channelInfo },
                         { quoted: message }
                     );
                 }
             } else {
                 await sock.sendMessage(
                     chatId,
-                    { text: caption },
+                    { text: largeCaption, ...channelInfo },
                     { quoted: message }
                 );
             }
+            await addReaction(sock, message, '⚠️');
             return;
         }
 
-        // If file is small enough, send directly
-        caption += `❖━━━━━━━━━━━━━━━━━━━❖\n`;
-        caption += `      📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱𝗶𝗻𝗴...\n`;
-        caption += `    𝗣𝗹𝗲𝗮𝘀𝗲 𝗪𝗮𝗶𝘁 ⏳\n`;
-        caption += `❖━━━━━━━━━━━━━━━━━━━❖`;
+        // ===============================
+        // 📥 SMALL FILE - SEND DIRECTLY
+        // ===============================
+        const caption = `
+╭┈──〔 📱 ᴀᴘᴋ ɪɴꜰᴏʀᴍᴀᴛɪᴏɴ 〕┈──⊷
+┋⋄ ➠ 👑 ɴᴀᴍᴇ    : ${appName.toUpperCase()}
+┋⋄ ➠ 📦 ᴘᴀᴄᴋᴀɢᴇ : ${appPackage.toUpperCase()}
+┋⋄ ➠ 📏 sɪᴢᴇ    : ${appSize} MB
+┋⋄ ➠ 🔄 ᴠᴇʀsɪᴏɴ : ${appVersion}
+╰─────────────────────⊷
+
+╭┈──〔 📥 ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ 〕┈──⊷
+┋⋄ ➠ ⏳ ᴘʟᴇᴀsᴇ ᴡᴀɪᴛ...
+╰─────────────────────⊷
+
+      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`;
 
         // Send app info with icon
         if (appIcon) {
@@ -128,56 +185,65 @@ async function apkCommand(sock, chatId, message, query) {
                     chatId,
                     {
                         image: { url: appIcon },
-                        caption: caption
+                        caption: caption,
+                        ...channelInfo
                     },
                     { quoted: message }
                 );
             } catch (imgError) {
                 await sock.sendMessage(
                     chatId,
-                    { text: caption },
+                    { text: caption, ...channelInfo },
                     { quoted: message }
                 );
             }
         } else {
             await sock.sendMessage(
                 chatId,
-                { text: caption },
+                { text: caption, ...channelInfo },
                 { quoted: message }
             );
         }
 
-        // Send the APK file
+        // Send APK file
         await sock.sendMessage(
             chatId,
             {
                 document: { url: downloadUrl },
                 mimetype: "application/vnd.android.package-archive",
                 fileName: `${appName}.apk`,
-                caption: `📱 *${appName}*\n\n✅ Download Complete!\n\n❖━━━━━━━━━━━━━━━━━━━❖\n  𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 𝗠𝘂𝘇𝗮𝗺𝗶𝗹-𝗫𝗗\n❖━━━━━━━━━━━━━━━━━━━❖`
+                caption: `
+╭┈──〔 ✅ ᴀᴘᴋ ʀᴇᴀᴅʏ 〕┈──⊷
+┋⋄ ➠ 📱 ${appName}
+┋⋄ ➠ 📏 ${appSize} MB
+┋⋄ ➠ ✅ ᴅᴏᴡɴʟᴏᴀᴅ ᴄᴏᴍᴘʟᴇᴛᴇ
+╰─────────────────────⊷
+
+      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`,
+                ...channelInfo
             },
             { quoted: message }
         );
 
+        await addReaction(sock, message, '✅');
         console.log(`[APK] Successfully sent: ${appName}`);
 
     } catch (error) {
         console.error('[APK] Error:', error.message);
-        
-        let errorMessage = '❖━━━━━━━━━━━━━━━━━━━❖\n';
-        errorMessage += '╔═══❖•ೋ° ❌ °ೋ•❖═══╗\n';
-        errorMessage += '      𝗘𝗿𝗿𝗼𝗿 𝗢𝗰𝗰𝘂𝗿𝗿𝗲𝗱\n';
-        errorMessage += '╚═══❖•ೋ° ❌ °ೋ•❖═══╝\n';
-        errorMessage += '❖━━━━━━━━━━━━━━━━━━━❖\n\n';
-        errorMessage += '🔴 ' + (error.message || 'Something went wrong.\nPlease try again.');
-        errorMessage += '\n\n💡 Try:\n.apk whatsapp\n.apk facebook';
-        errorMessage += '\n\n❖━━━━━━━━━━━━━━━━━━━❖\n';
-        errorMessage += '  𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗕𝘆 𝗠𝘂𝘇𝗮𝗺𝗶𝗹-𝗫𝗗\n';
-        errorMessage += '❖━━━━━━━━━━━━━━━━━━━❖';
+        await addReaction(sock, message, '❌');
 
         await sock.sendMessage(
             chatId,
-            { text: errorMessage },
+            {
+                text: `
+╭┈──〔 ❌ ᴇʀʀᴏʀ 〕┈──⊷
+┋⋄ ➠ 🔴 ${error.message || 'Something went wrong'}
+┋⋄ ➠ 💡 ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ
+╰─────────────────────⊷
+
+      𝗕𝘆 : 𝑅𝑼𝛣𝜦𝛣 × 𝑀𝑼𝑍𝜦𝑀𝜤𝐋`,
+                ...channelInfo
+            },
             { quoted: message }
         );
     }
