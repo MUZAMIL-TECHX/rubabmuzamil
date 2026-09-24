@@ -53,17 +53,19 @@ function trimTitle(title, max = 38) {
 }
 
 // ===============================
-// DOWNLOAD AUDIO HELPER (Buffer Safe)
+// ✅ FAST BUFFER DOWNLOAD
 // ===============================
 async function downloadAudio(url) {
     const response = await axios.get(url, {
         responseType: 'arraybuffer',
-        timeout: 120000,
+        timeout: 90000,
         maxContentLength: 100 * 1024 * 1024,
         maxBodyLength: 100 * 1024 * 1024,
+        decompress: true,
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'audio/*,*/*;q=0.8'
+            'Accept': 'audio/*,*/*;q=0.8',
+            'Accept-Encoding': 'identity'  // ✅ Fast & reliable
         }
     });
 
@@ -83,7 +85,7 @@ async function downloadAudio(url) {
 async function getZiaulAudio(query) {
     const apiUrl = `https://apiziaul.vercel.app/api/downloader/ytplaymp3?query=${encodeURIComponent(query)}`;
     const response = await axios.get(apiUrl, {
-        timeout: 90000,
+        timeout: 60000,
         maxContentLength: 2 * 1024 * 1024
     });
     const result = response.data?.result;
@@ -104,7 +106,7 @@ async function getZiaulAudio(query) {
 // ===============================
 async function getHectorAudio(youtubeUrl) {
     const apiUrl = `https://yt-dl.officialhectormanuel.workers.dev/?url=${encodeURIComponent(youtubeUrl)}`;
-    const response = await axios.get(apiUrl, { timeout: 90000 });
+    const response = await axios.get(apiUrl, { timeout: 60000 });
     const data = response.data;
     if (data?.status && data.audio) {
         return {
@@ -119,7 +121,7 @@ async function getHectorAudio(youtubeUrl) {
 }
 
 // ===============================
-// MAIN PLAY COMMAND
+// MAIN PLAY COMMAND (FIXED FAST)
 // ===============================
 async function playCommand(sock, chatId, message) {
     try {
@@ -127,7 +129,7 @@ async function playCommand(sock, chatId, message) {
         await addReaction(sock, message, '🎵');
 
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
-        const searchQuery = text.replace(/^\.(?:play|song|music|sound)\b/i, '').trim();
+        const searchQuery = text.replace(/^\.(?:play|song|music|sound|mp3|ytmp3)\b/i, '').trim();
 
         if (!searchQuery) {
             await addReaction(sock, message, '❌');
@@ -141,7 +143,7 @@ async function playCommand(sock, chatId, message) {
             }, { quoted: message });
         }
 
-        // 🔍 Search on YouTube
+        // 🔍 Search reaction
         await addReaction(sock, message, '🔍');
 
         let video = null;
@@ -149,45 +151,90 @@ async function playCommand(sock, chatId, message) {
         let usedApi = '';
 
         // ===============================
-        // TRY API #1: Ziaul
+        // 🖼️ STEP 1: GET VIDEO INFO FIRST (for thumbnail)
         // ===============================
+        try {
+            const { videos } = await yts(searchQuery);
+            if (!videos || videos.length === 0) {
+                await addReaction(sock, message, '❌');
+                return await sock.sendMessage(chatId, {
+                    text: box('❌ ɴᴏ sᴏɴɢs ꜰᴏᴜɴᴅ', [
+                        `🔍 ɴᴏ ʀᴇsᴜʟᴛs ꜰᴏʀ : ${searchQuery}`,
+                        '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ ᴋᴇʏᴡᴏʀᴅs'
+                    ]),
+                    ...channelInfo
+                }, { quoted: message });
+            }
+            video = videos[0];
+        } catch (e) {
+            console.error('YouTube search failed:', e);
+        }
+
+        // ===============================
+        // 🖼️ STEP 2: SEND THUMBNAIL FIRST (FATAKAT!)
+        // ===============================
+        if (video) {
+            try {
+                const previewCaption = box('🎵 sᴏɴɢ ꜰᴏᴜɴᴅ', [
+                    `📌 ᴛɪᴛʟᴇ : ${trimTitle(video.title, 35)}`,
+                    `⏱️ ᴅᴜʀᴀᴛɪᴏɴ : ${video.timestamp || 'Unknown'}`,
+                    `📺 ᴄʜᴀɴɴᴇʟ : ${String(video.author?.name || 'Unknown').slice(0, 25)}`,
+                    '━━━━━━━━━━━━━━━━━━',
+                    '⏳ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴍᴘ3...'
+                ]);
+
+                await sock.sendMessage(chatId, {
+                    image: { url: video.thumbnail },
+                    caption: previewCaption,
+                    ...channelInfo
+                }, { quoted: message });
+            } catch (e) {
+                console.error('Thumbnail error:', e);
+            }
+        }
+
+        // 📥 Download reaction
+        await addReaction(sock, message, '📥');
+
+        // ===============================
+        // 🎵 STEP 3: TRY APIs FOR AUDIO LINK
+        // ===============================
+
+        // Try API #1: Ziaul
         try {
             console.log('[PLAY] Trying Ziaul API...');
             audioData = await getZiaulAudio(searchQuery);
             usedApi = 'Ziaul';
             console.log('✅ Ziaul API success');
         } catch (apiError1) {
-            console.log('❌ Ziaul API failed:', apiError1.message);
+            console.log('❌ Ziaul failed:', apiError1.message);
 
-            // Fallback: Search YouTube and use Hector API
-            try {
-                const { videos } = await yts(searchQuery);
-                if (!videos || videos.length === 0) {
+            // Fallback: Use Hector with video URL
+            if (video) {
+                try {
+                    console.log('[PLAY] Trying Hector API...');
+                    const hectorData = await getHectorAudio(video.url);
+                    audioData = {
+                        downloadUrl: hectorData.downloadUrl,
+                        title: hectorData.title || video.title,
+                        duration: video.timestamp || hectorData.duration,
+                        quality: 'MP3',
+                        thumbnail: video.thumbnail
+                    };
+                    usedApi = 'Hector';
+                    console.log('✅ Hector API success');
+                } catch (apiError2) {
+                    console.log('❌ Hector failed:', apiError2.message);
                     await addReaction(sock, message, '❌');
                     return await sock.sendMessage(chatId, {
-                        text: box('❌ ɴᴏ sᴏɴɢs ꜰᴏᴜɴᴅ', [
-                            `🔍 ɴᴏ ʀᴇsᴜʟᴛs ꜰᴏʀ : ${searchQuery}`,
-                            '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ ᴋᴇʏᴡᴏʀᴅs'
+                        text: box('❌ ᴀᴘɪ ꜰᴀɪʟᴇᴅ', [
+                            '🔴 ᴀʟʟ ᴀᴘɪs ᴀʀᴇ ᴅᴏᴡɴ',
+                            '💡 ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ'
                         ]),
                         ...channelInfo
                     }, { quoted: message });
                 }
-
-                video = videos[0];
-                console.log('[PLAY] Trying Hector API...');
-                const hectorData = await getHectorAudio(video.url);
-                audioData = {
-                    downloadUrl: hectorData.downloadUrl,
-                    title: hectorData.title || video.title,
-                    duration: video.timestamp || hectorData.duration,
-                    quality: 'MP3',
-                    thumbnail: video.thumbnail
-                };
-                usedApi = 'Hector';
-                console.log('✅ Hector API success');
-
-            } catch (apiError2) {
-                console.log('❌ Hector API failed:', apiError2.message);
+            } else {
                 await addReaction(sock, message, '❌');
                 return await sock.sendMessage(chatId, {
                     text: box('❌ ᴀᴘɪ ꜰᴀɪʟᴇᴅ', [
@@ -202,44 +249,13 @@ async function playCommand(sock, chatId, message) {
         const finalTitle = audioData.title || searchQuery;
 
         // ===============================
-        // SEND PREVIEW
-        // ===============================
-        try {
-            const previewCaption = box('🎵 sᴏɴɢ ꜰᴏᴜɴᴅ', [
-                `📌 ᴛɪᴛʟᴇ : ${trimTitle(finalTitle, 35)}`,
-                `⏱️ ᴅᴜʀᴀᴛɪᴏɴ : ${audioData.duration || 'Unknown'}`,
-                `🎚️ ǫᴜᴀʟɪᴛʏ : ${audioData.quality || 'MP3'}`,
-                '━━━━━━━━━━━━━━━━━━',
-                '⏳ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴍᴘ3...'
-            ]);
-
-            if (audioData.thumbnail) {
-                await sock.sendMessage(chatId, {
-                    image: { url: audioData.thumbnail },
-                    caption: previewCaption,
-                    ...channelInfo
-                }, { quoted: message });
-            } else {
-                await sock.sendMessage(chatId, {
-                    text: previewCaption,
-                    ...channelInfo
-                }, { quoted: message });
-            }
-        } catch (e) {
-            console.error('Preview error:', e);
-        }
-
-        // 📥 Download reaction
-        await addReaction(sock, message, '📥');
-
-        // ===============================
-        // DOWNLOAD AS BUFFER (Safe)
+        // 🚀 STEP 4: DOWNLOAD AS BUFFER (FAST)
         // ===============================
         let audioBuffer;
         try {
             audioBuffer = await downloadAudio(audioData.downloadUrl);
         } catch (downloadError) {
-            console.error('Buffer download failed, trying URL method:', downloadError.message);
+            console.error('Buffer failed, URL fallback:', downloadError.message);
 
             // Fallback: Send via URL
             await sock.sendMessage(chatId, {
@@ -255,7 +271,7 @@ async function playCommand(sock, chatId, message) {
         }
 
         // ===============================
-        // SEND AUDIO
+        // ✅ STEP 5: SEND AUDIO
         // ===============================
         await sock.sendMessage(chatId, {
             audio: audioBuffer,
@@ -269,11 +285,15 @@ async function playCommand(sock, chatId, message) {
         await addReaction(sock, message, '✅');
 
     } catch (error) {
-        console.error('Error in play command:', error);
+        console.error('Play command error:', error);
         await addReaction(sock, message, '❌');
+
+        let errorMsg = error.message || 'Download failed';
+        if (errorMsg.length > 80) errorMsg = errorMsg.substring(0, 80) + '...';
+
         await sock.sendMessage(chatId, {
             text: box('❌ ᴇʀʀᴏʀ', [
-                `🔴 ${error.message || 'Download failed'}`,
+                `🔴 ${errorMsg}`,
                 '💡 ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ'
             ]),
             ...channelInfo
