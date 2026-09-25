@@ -49,26 +49,17 @@ function formatViews(views) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//                    🔍 SEARCH - SIPUTZX
+//                    🔍 SEARCH APIs (3 FALLBACK)
 // ═══════════════════════════════════════════════════════════
-async function searchSong(query) {
+async function searchSiputzx(query) {
     const apiUrl = `https://api.siputzx.my.id/api/s/youtube?query=${encodeURIComponent(query)}`;
-    console.log(`🔍 [Search] ${query}`);
-    
     const response = await axios.get(apiUrl, {
         timeout: 15000,
         headers: { 'User-Agent': 'Mozilla/5.0' }
     });
-
-    if (!response.data.status || !response.data.data || response.data.data.length === 0) {
-        throw new Error('No results');
-    }
-
+    if (!response.data.status || !response.data.data?.length) throw new Error('No results');
     const videoResult = response.data.data.find(item => item.type === 'video');
-    if (!videoResult) throw new Error('No video found');
-
-    console.log(`✅ [Search] Found: ${videoResult.title}`);
-    
+    if (!videoResult) throw new Error('No video');
     return {
         title: videoResult.title,
         url: videoResult.url,
@@ -79,76 +70,115 @@ async function searchSong(query) {
     };
 }
 
-// ═══════════════════════════════════════════════════════════
-//                    🎵 GET DOWNLOAD URLs (MULTIPLE SOURCES)
-// ═══════════════════════════════════════════════════════════
-async function getArslanAudio(youtubeUrl) {
-    const apiUrl = `https://arslan-apis-v2.vercel.app/download/ytmp3?url=${encodeURIComponent(youtubeUrl)}`;
+async function searchYupra(query) {
+    const apiUrl = `https://api.yupra.my.id/api/search/youtube?q=${encodeURIComponent(query)}`;
     const response = await axios.get(apiUrl, {
-        timeout: 30000,
+        timeout: 15000,
         headers: { 'User-Agent': 'Mozilla/5.0' }
     });
-    if (response.data.status && response.data.result?.download?.url) {
-        return {
-            downloadUrl: response.data.result.download.url,
-            title: response.data.result.metadata?.title || 'Audio'
-        };
+    if (!response.data.success || !response.data.data?.length) throw new Error('No results');
+    const vid = response.data.data[0];
+    return {
+        title: vid.title || 'Unknown',
+        url: vid.url || `https://youtube.com/watch?v=${vid.videoId}`,
+        thumbnail: vid.thumbnail || vid.image,
+        timestamp: vid.timestamp || 'Unknown',
+        views: vid.views || 0,
+        author: vid.author?.name || 'Unknown'
+    };
+}
+
+async function searchYts(query) {
+    const yts = require('yt-search');
+    const { videos } = await yts(query);
+    if (!videos || videos.length === 0) throw new Error('No results');
+    const v = videos[0];
+    return {
+        title: v.title,
+        url: v.url,
+        thumbnail: v.thumbnail,
+        timestamp: v.timestamp,
+        views: v.views,
+        author: v.author?.name || 'Unknown'
+    };
+}
+
+async function searchSong(query) {
+    const searchers = [
+        { name: 'Siputzx', fn: () => searchSiputzx(query) },
+        { name: 'Yupra', fn: () => searchYupra(query) },
+        { name: 'yt-search', fn: () => searchYts(query) }
+    ];
+
+    for (const searcher of searchers) {
+        try {
+            console.log(`🔍 Trying ${searcher.name}...`);
+            const data = await searcher.fn();
+            console.log(`✅ ${searcher.name} SUCCESS: ${data.title}`);
+            return data;
+        } catch (err) {
+            console.log(`❌ ${searcher.name} failed: ${err.message}`);
+        }
+    }
+
+    throw new Error('All search APIs failed');
+}
+
+// ═══════════════════════════════════════════════════════════
+//                    🎵 AUDIO DOWNLOAD APIs (5 FALLBACK)
+// ═══════════════════════════════════════════════════════════
+async function audioArslan(youtubeUrl) {
+    const apiUrl = `https://arslan-apis-v2.vercel.app/download/ytmp3?url=${encodeURIComponent(youtubeUrl)}`;
+    const res = await axios.get(apiUrl, { timeout: 30000 });
+    if (res.data.status && res.data.result?.download?.url) {
+        return { url: res.data.result.download.url, title: res.data.result.metadata?.title || 'Audio' };
     }
     throw new Error('Arslan failed');
 }
 
-async function getYupraAudio(youtubeUrl) {
+async function audioYupra(youtubeUrl) {
     const apiUrl = `https://api.yupra.my.id/api/downloader/ytmp3?url=${encodeURIComponent(youtubeUrl)}`;
-    const response = await axios.get(apiUrl, {
-        timeout: 30000,
-        headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    if (response.data.success && response.data.data?.download_url) {
-        return {
-            downloadUrl: response.data.data.download_url,
-            title: response.data.data.title || 'Audio'
-        };
+    const res = await axios.get(apiUrl, { timeout: 30000 });
+    if (res.data.success && res.data.data?.download_url) {
+        return { url: res.data.data.download_url, title: res.data.data.title || 'Audio' };
     }
     throw new Error('Yupra failed');
 }
 
-async function getOkatsuAudio(youtubeUrl) {
+async function audioOkatsu(youtubeUrl) {
     const apiUrl = `https://okatsu-rolezapiiz.vercel.app/downloader/ytmp3?url=${encodeURIComponent(youtubeUrl)}`;
-    const response = await axios.get(apiUrl, {
-        timeout: 30000,
-        headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    if (response.data.dl) {
-        return {
-            downloadUrl: response.data.dl,
-            title: response.data.title || 'Audio'
-        };
+    const res = await axios.get(apiUrl, { timeout: 30000 });
+    if (res.data.dl) {
+        return { url: res.data.dl, title: res.data.title || 'Audio' };
     }
     throw new Error('Okatsu failed');
 }
 
-async function getEliteProTechAudio(youtubeUrl) {
+async function audioEliteProTech(youtubeUrl) {
     const apiUrl = `https://eliteprotech-apis.zone.id/ytdown?url=${encodeURIComponent(youtubeUrl)}&format=mp3`;
-    const response = await axios.get(apiUrl, {
-        timeout: 30000,
-        headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    if (response.data.success && response.data.downloadURL) {
-        return {
-            downloadUrl: response.data.downloadURL,
-            title: response.data.title || 'Audio'
-        };
+    const res = await axios.get(apiUrl, { timeout: 30000 });
+    if (res.data.success && res.data.downloadURL) {
+        return { url: res.data.downloadURL, title: res.data.title || 'Audio' };
     }
     throw new Error('EliteProTech failed');
 }
 
-// ✅ Try ALL APIs until one works
-async function getAudioDownloadUrl(youtubeUrl) {
+async function audioAlya(youtubeUrl) {
+    const apiUrl = `https://api.alyachan.pro/api/ytmp3?url=${encodeURIComponent(youtubeUrl)}&apikey=G7I6X7`;
+    const res = await axios.get(apiUrl, { timeout: 30000 });
+    if (res.data.status && res.data.data?.url) {
+        return { url: res.data.data.url, title: res.data.data.title || 'Audio' };
+    }
+    throw new Error('Alya failed');
+}
+
+async function getAudioUrl(youtubeUrl) {
     const apis = [
-        { name: 'Arslan', fn: () => getArslanAudio(youtubeUrl) },
-        { name: 'Yupra', fn: () => getYupraAudio(youtubeUrl) },
-        { name: 'Okatsu', fn: () => getOkatsuAudio(youtubeUrl) },
-        { name: 'EliteProTech', fn: () => getEliteProTechAudio(youtubeUrl) }
+        { name: 'Arslan', fn: () => audioArslan(youtubeUrl) },
+        { name: 'Yupra', fn: () => audioYupra(youtubeUrl) },
+        { name: 'Okatsu', fn: () => audioOkatsu(youtubeUrl) },
+        { name: 'EliteProTech', fn: () => audioEliteProTech(youtubeUrl) },
+        { name: 'Alya', fn: () => audioAlya(youtubeUrl) }
     ];
 
     for (const api of apis) {
@@ -161,92 +191,183 @@ async function getAudioDownloadUrl(youtubeUrl) {
             console.log(`❌ ${api.name} failed: ${err.message}`);
         }
     }
-
-    throw new Error('All download APIs failed');
+    throw new Error('All audio APIs failed');
 }
 
 // ═══════════════════════════════════════════════════════════
-//                    📥 BUFFER DOWNLOAD (FIXED FOR 123tokyo)
+//                    📥 DOWNLOAD BUFFER (5 STRATEGIES)
 // ═══════════════════════════════════════════════════════════
-async function downloadAudioBuffer(url) {
-    console.log(`📥 [Buffer] Downloading from: ${url.substring(0, 80)}...`);
+async function downloadBuffer(url) {
+    console.log(`📥 [Download] ${url.substring(0, 80)}...`);
 
-    // ✅ FIX: Try multiple download strategies
-    const strategies = [
-        // Strategy 1: Arraybuffer with proper headers
-        async () => {
-            const response = await axios.get(url, {
-                responseType: 'arraybuffer',
-                timeout: 120000,
-                maxContentLength: Infinity,
-                maxBodyLength: Infinity,
-                decompress: true,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'audio/mpeg,audio/*,video/*,*/*;q=0.8',
-                    'Accept-Encoding': 'identity',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Connection': 'keep-alive'
-                }
-            });
-            return Buffer.from(response.data);
-        },
-        
-        // Strategy 2: Stream mode
-        async () => {
-            const response = await axios.get(url, {
-                responseType: 'stream',
-                timeout: 120000,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0',
-                    'Accept': '*/*',
-                    'Accept-Encoding': 'identity'
-                }
-            });
-            
-            const chunks = [];
-            for await (const chunk of response.data) {
-                chunks.push(chunk);
+    // Strategy 1: Arraybuffer
+    try {
+        console.log('🔄 [Strategy 1] Arraybuffer...');
+        const response = await axios.get(url, {
+            responseType: 'arraybuffer',
+            timeout: 120000,
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
+            decompress: true,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'audio/mpeg,audio/*,video/*,*/*;q=0.8',
+                'Accept-Encoding': 'identity',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Connection': 'keep-alive'
             }
-            return Buffer.concat(chunks);
-        },
-        
-        // Strategy 3: Follow redirects manually
-        async () => {
-            const response = await axios.get(url, {
-                responseType: 'arraybuffer',
-                timeout: 120000,
-                maxRedirects: 10,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0',
-                    'Accept-Encoding': 'identity'
-                }
-            });
-            return Buffer.from(response.data);
+        });
+        const buf = Buffer.from(response.data);
+        if (buf && buf.length > 0) {
+            console.log(`✅ [Strategy 1] ${(buf.length / 1024 / 1024).toFixed(2)} MB`);
+            return buf;
         }
-    ];
-
-    let lastError;
-    for (let i = 0; i < strategies.length; i++) {
-        try {
-            console.log(`🔄 [Strategy ${i + 1}] Trying...`);
-            const buffer = await strategies[i]();
-            
-            if (buffer && buffer.length > 0) {
-                console.log(`✅ [Strategy ${i + 1}] Success: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`);
-                return buffer;
-            }
-        } catch (err) {
-            console.log(`❌ [Strategy ${i + 1}] Failed: ${err.message}`);
-            lastError = err;
-        }
+    } catch (err) {
+        console.log(`❌ [Strategy 1] ${err.message}`);
     }
 
-    throw lastError || new Error('All download strategies failed');
+    // Strategy 2: Stream
+    try {
+        console.log('🔄 [Strategy 2] Stream...');
+        const response = await axios.get(url, {
+            responseType: 'stream',
+            timeout: 120000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0',
+                'Accept': '*/*',
+                'Accept-Encoding': 'identity'
+            }
+        });
+        const chunks = [];
+        for await (const chunk of response.data) chunks.push(chunk);
+        const buf = Buffer.concat(chunks);
+        if (buf && buf.length > 0) {
+            console.log(`✅ [Strategy 2] ${(buf.length / 1024 / 1024).toFixed(2)} MB`);
+            return buf;
+        }
+    } catch (err) {
+        console.log(`❌ [Strategy 2] ${err.message}`);
+    }
+
+    // Strategy 3: Redirects
+    try {
+        console.log('🔄 [Strategy 3] Redirects...');
+        const response = await axios.get(url, {
+            responseType: 'arraybuffer',
+            timeout: 120000,
+            maxRedirects: 15,
+            headers: {
+                'User-Agent': 'Mozilla/5.0',
+                'Accept-Encoding': 'identity'
+            }
+        });
+        const buf = Buffer.from(response.data);
+        if (buf && buf.length > 0) {
+            console.log(`✅ [Strategy 3] ${(buf.length / 1024 / 1024).toFixed(2)} MB`);
+            return buf;
+        }
+    } catch (err) {
+        console.log(`❌ [Strategy 3] ${err.message}`);
+    }
+
+    // Strategy 4: HTTP
+    try {
+        console.log('🔄 [Strategy 4] HTTP...');
+        const httpUrl = url.replace('https://', 'http://');
+        const response = await axios.get(httpUrl, {
+            responseType: 'arraybuffer',
+            timeout: 120000,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        const buf = Buffer.from(response.data);
+        if (buf && buf.length > 0) {
+            console.log(`✅ [Strategy 4] ${(buf.length / 1024 / 1024).toFixed(2)} MB`);
+            return buf;
+        }
+    } catch (err) {
+        console.log(`❌ [Strategy 4] ${err.message}`);
+    }
+
+    // Strategy 5: node-fetch
+    try {
+        console.log('🔄 [Strategy 5] node-fetch...');
+        const fetch = require('node-fetch');
+        const res = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        const arrayBuffer = await res.arrayBuffer();
+        const buf = Buffer.from(arrayBuffer);
+        if (buf && buf.length > 0) {
+            console.log(`✅ [Strategy 5] ${(buf.length / 1024 / 1024).toFixed(2)} MB`);
+            return buf;
+        }
+    } catch (err) {
+        console.log(`❌ [Strategy 5] ${err.message}`);
+    }
+
+    throw new Error('All 5 download strategies failed');
 }
 
 // ═══════════════════════════════════════════════════════════
-//                    🚀 MAIN PLAY COMMAND
+//                    📤 SEND AUDIO (3 METHODS)
+// ═══════════════════════════════════════════════════════════
+async function sendAudio(sock, chatId, message, audioUrl, title) {
+    const fileName = `${title.replace(/[^\w\s-]/g, '')}.mp3`;
+
+    // Method 1: Buffer
+    try {
+        console.log('📤 [Method 1] Buffer send...');
+        const buffer = await downloadBuffer(audioUrl);
+        await sock.sendMessage(chatId, {
+            audio: buffer,
+            mimetype: 'audio/mpeg',
+            fileName,
+            ptt: false,
+            ...channelInfo
+        }, { quoted: message });
+        console.log('✅ [Method 1] SUCCESS');
+        return true;
+    } catch (err) {
+        console.log(`❌ [Method 1] ${err.message}`);
+    }
+
+    // Method 2: Direct URL
+    try {
+        console.log('📤 [Method 2] URL send...');
+        await sock.sendMessage(chatId, {
+            audio: { url: audioUrl },
+            mimetype: 'audio/mpeg',
+            fileName,
+            ptt: false,
+            ...channelInfo
+        }, { quoted: message });
+        console.log('✅ [Method 2] SUCCESS');
+        return true;
+    } catch (err) {
+        console.log(`❌ [Method 2] ${err.message}`);
+    }
+
+    // Method 3: Document
+    try {
+        console.log('📤 [Method 3] Document send...');
+        const buffer = await downloadBuffer(audioUrl);
+        await sock.sendMessage(chatId, {
+            document: buffer,
+            mimetype: 'audio/mpeg',
+            fileName,
+            ...channelInfo
+        }, { quoted: message });
+        console.log('✅ [Method 3] SUCCESS');
+        return true;
+    } catch (err) {
+        console.log(`❌ [Method 3] ${err.message}`);
+    }
+
+    return false;
+}
+
+// ═══════════════════════════════════════════════════════════
+//                    🚀 MAIN PLAY COMMAND (THUMBNAIL FIRST!)
 // ═══════════════════════════════════════════════════════════
 async function playCommand(sock, chatId, message) {
     try {
@@ -288,11 +409,11 @@ async function playCommand(sock, chatId, message) {
             }, { quoted: message });
         }
 
-        await addReaction(sock, message, '🎵');
+        // ═══════════════════════════════════════
+        // 🖼️ STEP 2: THUMBNAIL FIRST (FATAKAT!)
+        // ═══════════════════════════════════════
+        await addReaction(sock, message, '🖼️');
 
-        // ═══════════════════════════════════════
-        // STEP 2: SEND THUMBNAIL FIRST
-        // ═══════════════════════════════════════
         try {
             await sock.sendMessage(chatId, {
                 image: { url: songData.thumbnail },
@@ -306,78 +427,51 @@ async function playCommand(sock, chatId, message) {
                 ]),
                 ...channelInfo
             }, { quoted: message });
+            console.log('✅ Thumbnail sent FIRST');
         } catch (thumbError) {
-            console.error('Thumbnail error:', thumbError.message);
+            console.error('❌ Thumbnail error:', thumbError.message);
         }
 
         // ═══════════════════════════════════════
-        // STEP 3: GET DOWNLOAD URL (ALL APIs)
+        // STEP 3: GET AUDIO URL
         // ═══════════════════════════════════════
         await addReaction(sock, message, '📥');
 
         let audioData;
         try {
-            audioData = await getAudioDownloadUrl(songData.url);
+            audioData = await getAudioUrl(songData.url);
         } catch (urlError) {
             await addReaction(sock, message, '❌');
             return await sock.sendMessage(chatId, {
                 text: box('❌ ᴅᴏᴡɴʟᴏᴀᴅ ꜰᴀɪʟᴇᴅ', [
                     '🔴 ᴀʟʟ ᴀᴜᴅɪᴏ ᴀᴘɪs ꜰᴀɪʟᴇᴅ',
-                    '💡 ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ'
+                    '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ sᴏɴɢ'
                 ]),
                 ...channelInfo
             }, { quoted: message });
         }
 
         // ═══════════════════════════════════════
-        // STEP 4: DOWNLOAD AS BUFFER (3 STRATEGIES)
+        // STEP 4: SEND AUDIO
         // ═══════════════════════════════════════
-        let audioBuffer;
-        try {
-            audioBuffer = await downloadAudioBuffer(audioData.downloadUrl);
-        } catch (bufferError) {
-            console.error('All buffer strategies failed:', bufferError.message);
-            
-            // ✅ Last resort: Direct URL
-            try {
-                await sock.sendMessage(chatId, {
-                    audio: { url: audioData.downloadUrl },
-                    mimetype: 'audio/mpeg',
-                    fileName: `${audioData.title.replace(/[^\w\s-]/g, '')}.mp3`,
-                    ptt: false,
-                    ...channelInfo
-                }, { quoted: message });
+        const success = await sendAudio(sock, chatId, message, audioData.url, audioData.title);
 
-                await addReaction(sock, message, '✅');
-                return;
-            } catch (finalError) {
-                await addReaction(sock, message, '❌');
-                return await sock.sendMessage(chatId, {
-                    text: box('❌ ꜰᴀɪʟᴇᴅ', [
-                        '🔴 ᴄᴏᴜʟᴅ ɴᴏᴛ ᴅᴏᴡɴʟᴏᴀᴅ sᴏɴɢ',
-                        '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ sᴏɴɢ'
-                    ]),
-                    ...channelInfo
-                }, { quoted: message });
-            }
+        if (!success) {
+            await addReaction(sock, message, '❌');
+            return await sock.sendMessage(chatId, {
+                text: box('❌ ꜰᴀɪʟᴇᴅ', [
+                    '🔴 ᴄᴏᴜʟᴅ ɴᴏᴛ sᴇɴᴅ ᴀᴜᴅɪᴏ',
+                    '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ sᴏɴɢ'
+                ]),
+                ...channelInfo
+            }, { quoted: message });
         }
-
-        // ═══════════════════════════════════════
-        // STEP 5: SEND AUDIO
-        // ═══════════════════════════════════════
-        await sock.sendMessage(chatId, {
-            audio: audioBuffer,
-            mimetype: 'audio/mpeg',
-            fileName: `${audioData.title.replace(/[^\w\s-]/g, '')}.mp3`,
-            ptt: false,
-            ...channelInfo
-        }, { quoted: message });
 
         await addReaction(sock, message, '✅');
         console.log(`✅ Song sent: ${audioData.title}`);
 
     } catch (error) {
-        console.error('❌ Play command error:', error);
+        console.error('❌ Play error:', error);
         await addReaction(sock, message, '❌');
 
         let errorMsg = error.message || 'Unknown error';
