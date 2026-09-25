@@ -15,6 +15,8 @@ const channelInfo = {
     }
 };
 
+const HECTOR_API = 'https://yt-dl.officialhectormanuel.workers.dev/?url=';
+
 // ═══════════════════════════════════════════════════════════
 //                    🛠️ HELPERS
 // ═══════════════════════════════════════════════════════════
@@ -40,62 +42,23 @@ function trim(str, n) {
     return str.length > n ? str.slice(0, n) + '...' : str;
 }
 
-function formatViews(views) {
-    if (!views) return '0';
-    if (views >= 1000000000) return (views / 1000000000).toFixed(1) + 'B';
-    if (views >= 1000000) return (views / 1000000).toFixed(1) + 'M';
-    if (views >= 1000) return (views / 1000).toFixed(1) + 'K';
-    return views.toString();
-}
-
 // ═══════════════════════════════════════════════════════════
-//                    🔍 SEARCH APIs (3 FALLBACK)
+//                    🔍 SEARCH (yt-search only - RELIABLE)
 // ═══════════════════════════════════════════════════════════
-async function searchSiputzx(query) {
-    const apiUrl = `https://api.siputzx.my.id/api/s/youtube?query=${encodeURIComponent(query)}`;
-    const response = await axios.get(apiUrl, {
-        timeout: 15000,
-        headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    if (!response.data.status || !response.data.data?.length) throw new Error('No results');
-    const videoResult = response.data.data.find(item => item.type === 'video');
-    if (!videoResult) throw new Error('No video');
-    return {
-        title: videoResult.title,
-        url: videoResult.url,
-        thumbnail: videoResult.thumbnail || videoResult.image,
-        timestamp: videoResult.timestamp,
-        views: videoResult.views,
-        author: videoResult.author?.name || 'Unknown'
-    };
-}
-
-async function searchYupra(query) {
-    const apiUrl = `https://api.yupra.my.id/api/search/youtube?q=${encodeURIComponent(query)}`;
-    const response = await axios.get(apiUrl, {
-        timeout: 15000,
-        headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    if (!response.data.success || !response.data.data?.length) throw new Error('No results');
-    const vid = response.data.data[0];
-    return {
-        title: vid.title || 'Unknown',
-        url: vid.url || `https://youtube.com/watch?v=${vid.videoId}`,
-        thumbnail: vid.thumbnail || vid.image,
-        timestamp: vid.timestamp || 'Unknown',
-        views: vid.views || 0,
-        author: vid.author?.name || 'Unknown'
-    };
-}
-
-async function searchYts(query) {
+async function searchSong(query) {
     const yts = require('yt-search');
+    console.log(`🔍 [Search] ${query}`);
+    
     const { videos } = await yts(query);
     if (!videos || videos.length === 0) throw new Error('No results');
+    
     const v = videos[0];
+    console.log(`✅ [Search] Found: ${v.title}`);
+    
     return {
         title: v.title,
         url: v.url,
+        videoId: v.videoId,
         thumbnail: v.thumbnail,
         timestamp: v.timestamp,
         views: v.views,
@@ -103,267 +66,57 @@ async function searchYts(query) {
     };
 }
 
-async function searchSong(query) {
-    const searchers = [
-        { name: 'Siputzx', fn: () => searchSiputzx(query) },
-        { name: 'Yupra', fn: () => searchYupra(query) },
-        { name: 'yt-search', fn: () => searchYts(query) }
-    ];
+// ═══════════════════════════════════════════════════════════
+//                    🎵 HECTOR API (Audio + Thumbnail)
+// ═══════════════════════════════════════════════════════════
+async function getHectorData(youtubeUrl) {
+    console.log(`🎵 [Hector] Fetching data...`);
+    
+    const apiUrl = `${HECTOR_API}${encodeURIComponent(youtubeUrl)}`;
+    const response = await axios.get(apiUrl, {
+        timeout: 30000,
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
 
-    for (const searcher of searchers) {
-        try {
-            console.log(`🔍 Trying ${searcher.name}...`);
-            const data = await searcher.fn();
-            console.log(`✅ ${searcher.name} SUCCESS: ${data.title}`);
-            return data;
-        } catch (err) {
-            console.log(`❌ ${searcher.name} failed: ${err.message}`);
-        }
+    if (!response.data.status || !response.data.audio) {
+        throw new Error('Hector API failed');
     }
 
-    throw new Error('All search APIs failed');
+    console.log(`✅ [Hector] Got audio URL`);
+    
+    return {
+        title: response.data.title || 'Audio',
+        thumbnail: response.data.thumbnail,
+        audio: response.data.audio,
+        videos: response.data.videos,
+        qualities: response.data.available_qualities
+    };
 }
 
 // ═══════════════════════════════════════════════════════════
-//                    🎵 AUDIO DOWNLOAD APIs (5 FALLBACK)
-// ═══════════════════════════════════════════════════════════
-async function audioArslan(youtubeUrl) {
-    const apiUrl = `https://arslan-apis-v2.vercel.app/download/ytmp3?url=${encodeURIComponent(youtubeUrl)}`;
-    const res = await axios.get(apiUrl, { timeout: 30000 });
-    if (res.data.status && res.data.result?.download?.url) {
-        return { url: res.data.result.download.url, title: res.data.result.metadata?.title || 'Audio' };
-    }
-    throw new Error('Arslan failed');
-}
-
-async function audioYupra(youtubeUrl) {
-    const apiUrl = `https://api.yupra.my.id/api/downloader/ytmp3?url=${encodeURIComponent(youtubeUrl)}`;
-    const res = await axios.get(apiUrl, { timeout: 30000 });
-    if (res.data.success && res.data.data?.download_url) {
-        return { url: res.data.data.download_url, title: res.data.data.title || 'Audio' };
-    }
-    throw new Error('Yupra failed');
-}
-
-async function audioOkatsu(youtubeUrl) {
-    const apiUrl = `https://okatsu-rolezapiiz.vercel.app/downloader/ytmp3?url=${encodeURIComponent(youtubeUrl)}`;
-    const res = await axios.get(apiUrl, { timeout: 30000 });
-    if (res.data.dl) {
-        return { url: res.data.dl, title: res.data.title || 'Audio' };
-    }
-    throw new Error('Okatsu failed');
-}
-
-async function audioEliteProTech(youtubeUrl) {
-    const apiUrl = `https://eliteprotech-apis.zone.id/ytdown?url=${encodeURIComponent(youtubeUrl)}&format=mp3`;
-    const res = await axios.get(apiUrl, { timeout: 30000 });
-    if (res.data.success && res.data.downloadURL) {
-        return { url: res.data.downloadURL, title: res.data.title || 'Audio' };
-    }
-    throw new Error('EliteProTech failed');
-}
-
-async function audioAlya(youtubeUrl) {
-    const apiUrl = `https://api.alyachan.pro/api/ytmp3?url=${encodeURIComponent(youtubeUrl)}&apikey=G7I6X7`;
-    const res = await axios.get(apiUrl, { timeout: 30000 });
-    if (res.data.status && res.data.data?.url) {
-        return { url: res.data.data.url, title: res.data.data.title || 'Audio' };
-    }
-    throw new Error('Alya failed');
-}
-
-async function getAudioUrl(youtubeUrl) {
-    const apis = [
-        { name: 'Arslan', fn: () => audioArslan(youtubeUrl) },
-        { name: 'Yupra', fn: () => audioYupra(youtubeUrl) },
-        { name: 'Okatsu', fn: () => audioOkatsu(youtubeUrl) },
-        { name: 'EliteProTech', fn: () => audioEliteProTech(youtubeUrl) },
-        { name: 'Alya', fn: () => audioAlya(youtubeUrl) }
-    ];
-
-    for (const api of apis) {
-        try {
-            console.log(`🔄 Trying ${api.name}...`);
-            const data = await api.fn();
-            console.log(`✅ ${api.name} SUCCESS`);
-            return data;
-        } catch (err) {
-            console.log(`❌ ${api.name} failed: ${err.message}`);
-        }
-    }
-    throw new Error('All audio APIs failed');
-}
-
-// ═══════════════════════════════════════════════════════════
-//                    📥 DOWNLOAD BUFFER (5 STRATEGIES)
+//                    📥 BUFFER DOWNLOAD (FAST)
 // ═══════════════════════════════════════════════════════════
 async function downloadBuffer(url) {
-    console.log(`📥 [Download] ${url.substring(0, 80)}...`);
+    console.log(`📥 [Buffer] Downloading...`);
 
-    // Strategy 1: Arraybuffer
-    try {
-        console.log('🔄 [Strategy 1] Arraybuffer...');
-        const response = await axios.get(url, {
-            responseType: 'arraybuffer',
-            timeout: 120000,
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity,
-            decompress: true,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'audio/mpeg,audio/*,video/*,*/*;q=0.8',
-                'Accept-Encoding': 'identity',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Connection': 'keep-alive'
-            }
-        });
-        const buf = Buffer.from(response.data);
-        if (buf && buf.length > 0) {
-            console.log(`✅ [Strategy 1] ${(buf.length / 1024 / 1024).toFixed(2)} MB`);
-            return buf;
+    const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 120000,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        decompress: true,
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'audio/mpeg,audio/*,*/*;q=0.8',
+            'Accept-Encoding': 'identity'
         }
-    } catch (err) {
-        console.log(`❌ [Strategy 1] ${err.message}`);
-    }
+    });
 
-    // Strategy 2: Stream
-    try {
-        console.log('🔄 [Strategy 2] Stream...');
-        const response = await axios.get(url, {
-            responseType: 'stream',
-            timeout: 120000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0',
-                'Accept': '*/*',
-                'Accept-Encoding': 'identity'
-            }
-        });
-        const chunks = [];
-        for await (const chunk of response.data) chunks.push(chunk);
-        const buf = Buffer.concat(chunks);
-        if (buf && buf.length > 0) {
-            console.log(`✅ [Strategy 2] ${(buf.length / 1024 / 1024).toFixed(2)} MB`);
-            return buf;
-        }
-    } catch (err) {
-        console.log(`❌ [Strategy 2] ${err.message}`);
-    }
+    const buffer = Buffer.from(response.data);
+    if (!buffer || buffer.length === 0) throw new Error('Empty buffer');
 
-    // Strategy 3: Redirects
-    try {
-        console.log('🔄 [Strategy 3] Redirects...');
-        const response = await axios.get(url, {
-            responseType: 'arraybuffer',
-            timeout: 120000,
-            maxRedirects: 15,
-            headers: {
-                'User-Agent': 'Mozilla/5.0',
-                'Accept-Encoding': 'identity'
-            }
-        });
-        const buf = Buffer.from(response.data);
-        if (buf && buf.length > 0) {
-            console.log(`✅ [Strategy 3] ${(buf.length / 1024 / 1024).toFixed(2)} MB`);
-            return buf;
-        }
-    } catch (err) {
-        console.log(`❌ [Strategy 3] ${err.message}`);
-    }
-
-    // Strategy 4: HTTP
-    try {
-        console.log('🔄 [Strategy 4] HTTP...');
-        const httpUrl = url.replace('https://', 'http://');
-        const response = await axios.get(httpUrl, {
-            responseType: 'arraybuffer',
-            timeout: 120000,
-            headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-        const buf = Buffer.from(response.data);
-        if (buf && buf.length > 0) {
-            console.log(`✅ [Strategy 4] ${(buf.length / 1024 / 1024).toFixed(2)} MB`);
-            return buf;
-        }
-    } catch (err) {
-        console.log(`❌ [Strategy 4] ${err.message}`);
-    }
-
-    // Strategy 5: node-fetch
-    try {
-        console.log('🔄 [Strategy 5] node-fetch...');
-        const fetch = require('node-fetch');
-        const res = await fetch(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-        const arrayBuffer = await res.arrayBuffer();
-        const buf = Buffer.from(arrayBuffer);
-        if (buf && buf.length > 0) {
-            console.log(`✅ [Strategy 5] ${(buf.length / 1024 / 1024).toFixed(2)} MB`);
-            return buf;
-        }
-    } catch (err) {
-        console.log(`❌ [Strategy 5] ${err.message}`);
-    }
-
-    throw new Error('All 5 download strategies failed');
-}
-
-// ═══════════════════════════════════════════════════════════
-//                    📤 SEND AUDIO (3 METHODS)
-// ═══════════════════════════════════════════════════════════
-async function sendAudio(sock, chatId, message, audioUrl, title) {
-    const fileName = `${title.replace(/[^\w\s-]/g, '')}.mp3`;
-
-    // Method 1: Buffer
-    try {
-        console.log('📤 [Method 1] Buffer send...');
-        const buffer = await downloadBuffer(audioUrl);
-        await sock.sendMessage(chatId, {
-            audio: buffer,
-            mimetype: 'audio/mpeg',
-            fileName,
-            ptt: false,
-            ...channelInfo
-        }, { quoted: message });
-        console.log('✅ [Method 1] SUCCESS');
-        return true;
-    } catch (err) {
-        console.log(`❌ [Method 1] ${err.message}`);
-    }
-
-    // Method 2: Direct URL
-    try {
-        console.log('📤 [Method 2] URL send...');
-        await sock.sendMessage(chatId, {
-            audio: { url: audioUrl },
-            mimetype: 'audio/mpeg',
-            fileName,
-            ptt: false,
-            ...channelInfo
-        }, { quoted: message });
-        console.log('✅ [Method 2] SUCCESS');
-        return true;
-    } catch (err) {
-        console.log(`❌ [Method 2] ${err.message}`);
-    }
-
-    // Method 3: Document
-    try {
-        console.log('📤 [Method 3] Document send...');
-        const buffer = await downloadBuffer(audioUrl);
-        await sock.sendMessage(chatId, {
-            document: buffer,
-            mimetype: 'audio/mpeg',
-            fileName,
-            ...channelInfo
-        }, { quoted: message });
-        console.log('✅ [Method 3] SUCCESS');
-        return true;
-    } catch (err) {
-        console.log(`❌ [Method 3] ${err.message}`);
-    }
-
-    return false;
+    console.log(`✅ [Buffer] Size: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`);
+    return buffer;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -410,18 +163,38 @@ async function playCommand(sock, chatId, message) {
         }
 
         // ═══════════════════════════════════════
-        // 🖼️ STEP 2: THUMBNAIL FIRST (FATAKAT!)
+        // STEP 2: HECTOR API (get thumbnail + audio)
+        // ═══════════════════════════════════════
+        await addReaction(sock, message, '⏳');
+
+        let hectorData;
+        try {
+            hectorData = await getHectorData(songData.url);
+        } catch (hectorError) {
+            console.error('❌ Hector failed:', hectorError.message);
+            await addReaction(sock, message, '❌');
+            return await sock.sendMessage(chatId, {
+                text: box('❌ ᴅᴏᴡɴʟᴏᴀᴅ ꜰᴀɪʟᴇᴅ', [
+                    '🔴 ᴀᴜᴅɪᴏ ᴀᴘɪ ꜰᴀɪʟᴇᴅ',
+                    '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ sᴏɴɢ'
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+        }
+
+        // ═══════════════════════════════════════
+        // 🖼️ STEP 3: THUMBNAIL FIRST (FATAKAT!)
         // ═══════════════════════════════════════
         await addReaction(sock, message, '🖼️');
 
         try {
+            const thumbnailUrl = hectorData.thumbnail || songData.thumbnail;
             await sock.sendMessage(chatId, {
-                image: { url: songData.thumbnail },
+                image: { url: thumbnailUrl },
                 caption: box('🎵 sᴏɴɢ ꜰᴏᴜɴᴅ', [
-                    `📌 ᴛɪᴛʟᴇ : ${trim(songData.title, 38)}`,
+                    `📌 ᴛɪᴛʟᴇ : ${trim(hectorData.title, 38)}`,
                     `⏱️ ᴅᴜʀᴀᴛɪᴏɴ : ${songData.timestamp || 'N/A'}`,
                     `📺 ᴄʜᴀɴɴᴇʟ : ${trim(songData.author, 25)}`,
-                    `👁️ ᴠɪᴇᴡs : ${formatViews(songData.views)}`,
                     '━━━━━━━━━━━━━━━━━━',
                     '⏳ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴀᴜᴅɪᴏ...'
                 ]),
@@ -433,42 +206,53 @@ async function playCommand(sock, chatId, message) {
         }
 
         // ═══════════════════════════════════════
-        // STEP 3: GET AUDIO URL
+        // STEP 4: DOWNLOAD AUDIO BUFFER
         // ═══════════════════════════════════════
         await addReaction(sock, message, '📥');
 
-        let audioData;
+        let audioBuffer;
         try {
-            audioData = await getAudioUrl(songData.url);
-        } catch (urlError) {
-            await addReaction(sock, message, '❌');
-            return await sock.sendMessage(chatId, {
-                text: box('❌ ᴅᴏᴡɴʟᴏᴀᴅ ꜰᴀɪʟᴇᴅ', [
-                    '🔴 ᴀʟʟ ᴀᴜᴅɪᴏ ᴀᴘɪs ꜰᴀɪʟᴇᴅ',
-                    '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ sᴏɴɢ'
-                ]),
-                ...channelInfo
-            }, { quoted: message });
+            audioBuffer = await downloadBuffer(hectorData.audio);
+        } catch (bufferError) {
+            console.error('❌ Buffer failed:', bufferError.message);
+            
+            // ✅ Fallback: Direct URL
+            try {
+                await sock.sendMessage(chatId, {
+                    audio: { url: hectorData.audio },
+                    mimetype: 'audio/mpeg',
+                    fileName: `${hectorData.title.replace(/[^\w\s-]/g, '')}.mp3`,
+                    ptt: false,
+                    ...channelInfo
+                }, { quoted: message });
+
+                await addReaction(sock, message, '✅');
+                return;
+            } catch (urlError) {
+                await addReaction(sock, message, '❌');
+                return await sock.sendMessage(chatId, {
+                    text: box('❌ ꜰᴀɪʟᴇᴅ', [
+                        '🔴 ᴄᴏᴜʟᴅ ɴᴏᴛ ᴅᴏᴡɴʟᴏᴀᴅ',
+                        '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ sᴏɴɢ'
+                    ]),
+                    ...channelInfo
+                }, { quoted: message });
+            }
         }
 
         // ═══════════════════════════════════════
-        // STEP 4: SEND AUDIO
+        // STEP 5: SEND AUDIO
         // ═══════════════════════════════════════
-        const success = await sendAudio(sock, chatId, message, audioData.url, audioData.title);
-
-        if (!success) {
-            await addReaction(sock, message, '❌');
-            return await sock.sendMessage(chatId, {
-                text: box('❌ ꜰᴀɪʟᴇᴅ', [
-                    '🔴 ᴄᴏᴜʟᴅ ɴᴏᴛ sᴇɴᴅ ᴀᴜᴅɪᴏ',
-                    '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ sᴏɴɢ'
-                ]),
-                ...channelInfo
-            }, { quoted: message });
-        }
+        await sock.sendMessage(chatId, {
+            audio: audioBuffer,
+            mimetype: 'audio/mpeg',
+            fileName: `${hectorData.title.replace(/[^\w\s-]/g, '')}.mp3`,
+            ptt: false,
+            ...channelInfo
+        }, { quoted: message });
 
         await addReaction(sock, message, '✅');
-        console.log(`✅ Song sent: ${audioData.title}`);
+        console.log(`✅ Song sent: ${hectorData.title}`);
 
     } catch (error) {
         console.error('❌ Play error:', error);
