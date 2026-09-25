@@ -1,9 +1,8 @@
 const axios = require('axios');
-const yts = require('yt-search');
 
-// ===============================
-// 🎯 CHANNEL INFO
-// ===============================
+// ═══════════════════════════════════════════════════════════
+//                    🎯 CHANNEL INFO
+// ═══════════════════════════════════════════════════════════
 const channelInfo = {
     contextInfo: {
         forwardingScore: 1,
@@ -16,17 +15,11 @@ const channelInfo = {
     }
 };
 
-const AXIOS_DEFAULTS = {
-    timeout: 60000,
-    headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json, text/plain, */*'
-    }
-};
+const HECTOR_API = 'https://yt-dl.officialhectormanuel.workers.dev/?url=';
 
-// ===============================
-// HELPERS
-// ===============================
+// ═══════════════════════════════════════════════════════════
+//                    🛠️ HELPERS
+// ═══════════════════════════════════════════════════════════
 async function addReaction(sock, message, emoji) {
     try {
         await sock.sendMessage(message.key.remoteJid, {
@@ -49,195 +42,250 @@ function trim(str, n) {
     return str.length > n ? str.slice(0, n) + '...' : str;
 }
 
-async function tryRequest(getter, attempts = 3) {
-    let lastError;
-    for (let attempt = 1; attempt <= attempts; attempt++) {
-        try {
-            return await getter();
-        } catch (err) {
-            lastError = err;
-            if (attempt < attempts) {
-                await new Promise(r => setTimeout(r, 1000 * attempt));
-            }
+// ═══════════════════════════════════════════════════════════
+//                    🔍 SEARCH (yt-search)
+// ═══════════════════════════════════════════════════════════
+async function searchVideo(query) {
+    const yts = require('yt-search');
+    console.log(`🔍 [Search] ${query}`);
+    
+    const { videos } = await yts(query);
+    if (!videos || videos.length === 0) throw new Error('No results');
+    
+    const v = videos[0];
+    console.log(`✅ [Search] Found: ${v.title}`);
+    
+    return {
+        title: v.title,
+        url: v.url,
+        videoId: v.videoId,
+        thumbnail: v.thumbnail,
+        timestamp: v.timestamp,
+        views: v.views,
+        author: v.author?.name || 'Unknown'
+    };
+}
+
+// ═══════════════════════════════════════════════════════════
+//                    🎬 HECTOR API
+// ═══════════════════════════════════════════════════════════
+async function getHectorData(youtubeUrl) {
+    console.log(`🎬 [Hector] Fetching data...`);
+    
+    const apiUrl = `${HECTOR_API}${encodeURIComponent(youtubeUrl)}`;
+    const response = await axios.get(apiUrl, {
+        timeout: 30000,
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+
+    if (!response.data.status) {
+        throw new Error('Hector API failed');
+    }
+
+    console.log(`✅ [Hector] Got data`);
+    
+    return {
+        title: response.data.title || 'Video',
+        thumbnail: response.data.thumbnail,
+        audio: response.data.audio,
+        videos: response.data.videos,
+        qualities: response.data.available_qualities
+    };
+}
+
+// ═══════════════════════════════════════════════════════════
+//                    📥 BUFFER DOWNLOAD (FAST)
+// ═══════════════════════════════════════════════════════════
+async function downloadBuffer(url) {
+    console.log(`📥 [Buffer] Downloading...`);
+
+    const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 180000,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        decompress: true,
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'video/mp4,video/*,*/*;q=0.8',
+            'Accept-Encoding': 'identity'
         }
-    }
-    throw lastError;
+    });
+
+    const buffer = Buffer.from(response.data);
+    if (!buffer || buffer.length === 0) throw new Error('Empty buffer');
+
+    console.log(`✅ [Buffer] Size: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`);
+    return buffer;
 }
 
-// ===============================
-// VIDEO APIs
-// ===============================
-async function getEliteProTechVideoByUrl(youtubeUrl) {
-    const apiUrl = `https://eliteprotech-apis.zone.id/ytdown?url=${encodeURIComponent(youtubeUrl)}&format=mp4`;
-    const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
-    if (res?.data?.success && res?.data?.downloadURL) {
-        return { download: res.data.downloadURL, title: res.data.title };
-    }
-    throw new Error('EliteProTech failed');
-}
-
-async function getYupraVideoByUrl(youtubeUrl) {
-    const apiUrl = `https://api.yupra.my.id/api/downloader/ytmp4?url=${encodeURIComponent(youtubeUrl)}`;
-    const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
-    if (res?.data?.success && res?.data?.data?.download_url) {
-        return { download: res.data.data.download_url, title: res.data.data.title };
-    }
-    throw new Error('Yupra failed');
-}
-
-async function getOkatsuVideoByUrl(youtubeUrl) {
-    const apiUrl = `https://okatsu-rolezapiiz.vercel.app/downloader/ytmp4?url=${encodeURIComponent(youtubeUrl)}`;
-    const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
-    if (res?.data?.result?.mp4) {
-        return { download: res.data.result.mp4, title: res.data.result.title };
-    }
-    throw new Error('Okatsu failed');
-}
-
-async function getArslanVideoByUrl(youtubeUrl) {
-    const apiUrl = `https://arslan-apis-v2.vercel.app/download/ytmp4?url=${encodeURIComponent(youtubeUrl)}`;
-    const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
-    if (res?.data?.status && res?.data?.result?.download?.url) {
-        return {
-            download: res.data.result.download.url,
-            title: res.data.result.metadata?.title || 'Video'
-        };
-    }
-    throw new Error('Arslan failed');
-}
-
-// ===============================
-// MAIN VIDEO COMMAND
-// ===============================
+// ═══════════════════════════════════════════════════════════
+//                    🚀 MAIN VIDEO COMMAND (360p DEFAULT)
+// ═══════════════════════════════════════════════════════════
 async function videoCommand(sock, chatId, message) {
     try {
-        // 📥 Loading reaction
-        await addReaction(sock, message, '📥');
+        await addReaction(sock, message, '🎬');
 
-        const messageContent = message.message?.ephemeralMessage?.message || 
-                              message.message?.viewOnceMessage?.message || 
-                              message.message?.viewOnceMessageV2?.message || 
-                              message.message;
+        const text = message.message?.conversation || 
+                     message.message?.extendedTextMessage?.text || '';
         
-        const text = (messageContent.conversation || 
-                     messageContent.extendedTextMessage?.text || 
-                     messageContent.imageMessage?.caption || 
-                     messageContent.videoMessage?.caption || '').trim();
-        
-        const query = text.replace(/^\.video\s+/i, '').trim();
+        const query = text.replace(/^\.(?:video|vid|ytmp4)\b/i, '').trim();
 
-        if (!query || query.toLowerCase() === '.video') {
+        if (!query) {
             await addReaction(sock, message, '❌');
             return await sock.sendMessage(chatId, {
                 text: box('🎬 ᴠɪᴅᴇᴏ ᴅʟ', [
                     '📌 ᴜsᴀɢᴇ : .ᴠɪᴅᴇᴏ [ɴᴀᴍᴇ/ʟɪɴᴋ]',
-                    '🔍 ᴇxᴀᴍᴘʟᴇ 1 : .ᴠɪᴅᴇᴏ ᴀᴛɪꜰ ᴀsʟᴀᴍ',
-                    '🔗 ᴇxᴀᴍᴘʟᴇ 2 : .ᴠɪᴅᴇᴏ https://youtu.be/xxxxx'
+                    '🔍 ᴇxᴀᴍᴘʟᴇ 1 : .ᴠɪᴅᴇᴏ ᴘᴀsᴏᴏʀɪ',
+                    '🔍 ᴇxᴀᴍᴘʟᴇ 2 : .ᴠɪᴅᴇᴏ ᴀᴛɪꜰ ᴀsʟᴀᴍ',
+                    '━━━━━━━━━━━━━━━━━━',
+                    '📺 ǫᴜᴀʟɪᴛʏ : 360ᴘ (ᴅᴇꜰᴀᴜʟᴛ)'
                 ]),
                 ...channelInfo
             }, { quoted: message });
         }
 
-        // ⏳ Processing reaction
+        // ═══════════════════════════════════════
+        // STEP 1: SEARCH
+        // ═══════════════════════════════════════
+        await addReaction(sock, message, '🔍');
+
+        let videoData;
+        try {
+            videoData = await searchVideo(query);
+        } catch (searchError) {
+            await addReaction(sock, message, '❌');
+            return await sock.sendMessage(chatId, {
+                text: box('❌ ɴᴏ ʀᴇsᴜʟᴛs', [
+                    `🔍 ɴᴏ ᴠɪᴅᴇᴏ ꜰᴏᴜɴᴅ ꜰᴏʀ : ${query}`,
+                    '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ ᴋᴇʏᴡᴏʀᴅs'
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+        }
+
+        // ═══════════════════════════════════════
+        // STEP 2: HECTOR API
+        // ═══════════════════════════════════════
         await addReaction(sock, message, '⏳');
 
-        let videoUrl = '';
-        let videoTitle = '';
-        let videoThumbnail = '';
+        let hectorData;
+        try {
+            hectorData = await getHectorData(videoData.url);
+        } catch (hectorError) {
+            console.error('❌ Hector failed:', hectorError.message);
+            await addReaction(sock, message, '❌');
+            return await sock.sendMessage(chatId, {
+                text: box('❌ ꜰᴀɪʟᴇᴅ', [
+                    '🔴 ᴀᴘɪ ꜰᴀɪʟᴇᴅ',
+                    '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ ᴠɪᴅᴇᴏ'
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+        }
 
-        if (query.includes('youtube.com') || query.includes('youtu.be')) {
-            videoUrl = query;
-            videoTitle = 'YouTube Video';
-            const ytId = (videoUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/) || [])[1];
-            videoThumbnail = ytId ? `https://i.ytimg.com/vi/${ytId}/sddefault.jpg` : '';
-        } else {
-            const { videos } = await yts(query);
-            if (!videos || videos.length === 0) {
+        // ═══════════════════════════════════════
+        // 🖼️ STEP 3: THUMBNAIL FIRST
+        // ═══════════════════════════════════════
+        await addReaction(sock, message, '🖼️');
+
+        try {
+            const thumbnailUrl = hectorData.thumbnail || videoData.thumbnail;
+            await sock.sendMessage(chatId, {
+                image: { url: thumbnailUrl },
+                caption: box('🎬 ᴠɪᴅᴇᴏ ꜰᴏᴜɴᴅ', [
+                    `📌 ᴛɪᴛʟᴇ : ${trim(hectorData.title, 38)}`,
+                    `⏱️ ᴅᴜʀᴀᴛɪᴏɴ : ${videoData.timestamp || 'N/A'}`,
+                    `📺 ᴄʜᴀɴɴᴇʟ : ${trim(videoData.author, 25)}`,
+                    `📺 ǫᴜᴀʟɪᴛʏ : 360ᴘ`,
+                    '━━━━━━━━━━━━━━━━━━',
+                    '⏳ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ...'
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+            console.log('✅ Thumbnail sent FIRST');
+        } catch (thumbError) {
+            console.error('❌ Thumbnail error:', thumbError.message);
+        }
+
+        // ═══════════════════════════════════════
+        // STEP 4: DOWNLOAD 360p VIDEO
+        // ═══════════════════════════════════════
+        await addReaction(sock, message, '📥');
+
+        // ✅ Get 360p URL (fallback to lower if not available)
+        const videoUrl = hectorData.videos?.['360'] 
+                      || hectorData.videos?.['240']
+                      || hectorData.videos?.['144']
+                      || hectorData.videos?.['480']
+                      || hectorData.videos?.['720'];
+
+        if (!videoUrl) {
+            await addReaction(sock, message, '❌');
+            return await sock.sendMessage(chatId, {
+                text: box('❌ ɴᴏ ᴠɪᴅᴇᴏ ᴜʀʟ', [
+                    '🔴 ᴠɪᴅᴇᴏ ʟɪɴᴋ ɴᴏᴛ ꜰᴏᴜɴᴅ',
+                    '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ ᴠɪᴅᴇᴏ'
+                ]),
+                ...channelInfo
+            }, { quoted: message });
+        }
+
+        let videoBuffer;
+        try {
+            videoBuffer = await downloadBuffer(videoUrl);
+        } catch (bufferError) {
+            console.error('❌ Buffer failed:', bufferError.message);
+            
+            // ✅ Fallback: Direct URL
+            try {
+                await sock.sendMessage(chatId, {
+                    video: { url: videoUrl },
+                    mimetype: 'video/mp4',
+                    fileName: `${hectorData.title.replace(/[^\w\s-]/g, '')}.mp4`,
+                    caption: box('✅ ᴠɪᴅᴇᴏ ʀᴇᴀᴅʏ', [
+                        `📌 ᴛɪᴛʟᴇ : ${trim(hectorData.title, 30)}`,
+                        '📺 ǫᴜᴀʟɪᴛʏ : 360ᴘ',
+                        '✅ sᴛᴀᴛᴜs : ᴅᴏᴡɴʟᴏᴀᴅᴇᴅ'
+                    ]),
+                    ...channelInfo
+                }, { quoted: message });
+
+                await addReaction(sock, message, '✅');
+                return;
+            } catch (urlError) {
                 await addReaction(sock, message, '❌');
                 return await sock.sendMessage(chatId, {
-                    text: box('❌ ɴᴏ ᴠɪᴅᴇᴏs', [
-                        `🔍 ɴᴏ ᴠɪᴅᴇᴏs ꜰᴏᴜɴᴅ ꜰᴏʀ : ${query}`,
-                        '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ ᴋᴇʏᴡᴏʀᴅs'
+                    text: box('❌ ꜰᴀɪʟᴇᴅ', [
+                        '🔴 ᴄᴏᴜʟᴅ ɴᴏᴛ ᴅᴏᴡɴʟᴏᴀᴅ',
+                        '💡 ᴛʀʏ ᴅɪꜰꜰᴇʀᴇɴᴛ ᴠɪᴅᴇᴏ'
                     ]),
                     ...channelInfo
                 }, { quoted: message });
             }
-            videoUrl = videos[0].url;
-            videoTitle = videos[0].title;
-            videoThumbnail = videos[0].thumbnail;
         }
 
-        // 🎥 Video found
-        await addReaction(sock, message, '🎥');
-
-        // 🖼️ Send thumbnail FIRST
+        // ═══════════════════════════════════════
+        // STEP 5: SEND VIDEO
+        // ═══════════════════════════════════════
         await sock.sendMessage(chatId, {
-            image: { url: videoThumbnail || 'https://i.postimg.cc/y6GV9P3H/file-000000004c307206bc366893b817568c-(1).png' },
-            caption: box('🎬 ᴠɪᴅᴇᴏ ꜰᴏᴜɴᴅ', [
-                `📌 ᴛɪᴛʟᴇ : ${trim(videoTitle, 38)}`,
-                '━━━━━━━━━━━━━━━━━━',
-                '⏳ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ᴠɪᴅᴇᴏ...'
-            ]),
-            ...channelInfo
-        }, { quoted: message });
-
-        // 📥 Downloading
-        await addReaction(sock, message, '📥');
-
-        let videoData;
-        let downloadSuccess = false;
-
-        const apiMethods = [
-            { name: 'Arslan', method: () => getArslanVideoByUrl(videoUrl) },
-            { name: 'EliteProTech', method: () => getEliteProTechVideoByUrl(videoUrl) },
-            { name: 'Yupra', method: () => getYupraVideoByUrl(videoUrl) },
-            { name: 'Okatsu', method: () => getOkatsuVideoByUrl(videoUrl) }
-        ];
-
-        for (const apiMethod of apiMethods) {
-            try {
-                console.log(`🔄 Trying ${apiMethod.name}...`);
-                videoData = await apiMethod.method();
-                if (videoData.download) {
-                    console.log(`✅ ${apiMethod.name} SUCCESS`);
-                    downloadSuccess = true;
-                    break;
-                }
-            } catch (err) {
-                console.log(`❌ ${apiMethod.name} failed:`, err.message);
-            }
-        }
-
-        if (!downloadSuccess) {
-            await addReaction(sock, message, '❌');
-            return await sock.sendMessage(chatId, {
-                text: box('❌ ᴅᴏᴡɴʟᴏᴀᴅ ꜰᴀɪʟᴇᴅ', [
-                    '🔴 ᴀʟʟ sᴏᴜʀᴄᴇs ꜰᴀɪʟᴇᴅ',
-                    '💡 ᴘʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ'
-                ]),
-                ...channelInfo
-            }, { quoted: message });
-        }
-
-        const finalTitle = videoData.title || videoTitle || 'Video';
-
-        // ✅ Send video with styled caption
-        await sock.sendMessage(chatId, {
-            video: { url: videoData.download },
+            video: videoBuffer,
             mimetype: 'video/mp4',
-            fileName: `${finalTitle.replace(/[^\w\s-]/g, '')}.mp4`,
+            fileName: `${hectorData.title.replace(/[^\w\s-]/g, '')}.mp4`,
             caption: box('✅ ᴠɪᴅᴇᴏ ʀᴇᴀᴅʏ', [
-                `📌 ᴛɪᴛʟᴇ : ${trim(finalTitle, 35)}`,
+                `📌 ᴛɪᴛʟᴇ : ${trim(hectorData.title, 30)}`,
+                `📏 sɪᴢᴇ : ${(videoBuffer.length / 1024 / 1024).toFixed(1)} MB`,
+                '📺 ǫᴜᴀʟɪᴛʏ : 360ᴘ',
                 '✅ sᴛᴀᴛᴜs : ᴅᴏᴡɴʟᴏᴀᴅᴇᴅ'
             ]),
             ...channelInfo
         }, { quoted: message });
 
         await addReaction(sock, message, '✅');
-        console.log(`✅ Video sent: ${finalTitle}`);
+        console.log(`✅ Video sent: ${hectorData.title}`);
 
     } catch (error) {
-        console.error('Video error:', error);
+        console.error('❌ Video error:', error);
         await addReaction(sock, message, '❌');
 
         let errorMsg = error.message || 'Unknown error';
